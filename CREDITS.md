@@ -29,13 +29,15 @@ These are used in the build but were sourced from elsewhere. They are fine
 for local / classroom / private use; **confirm you have permission (or
 replace them) before publishing the site to a public URL.**
 
-- **Toronto drone footage (Chapters 1 & 3)** — `public/video/toronto-4k-b.mp4`,
-  re-encoded from a YouTube drone film:
-  "Toronto, Canada – by drone [4K]" — https://www.youtube.com/watch?v=NS1_JEPJjHA
-- **Toronto drone footage (hero + Chapter 2)** — `public/video/toronto-4k-c.mp4`,
-  re-encoded from a downloaded 4K clip whose original source is **not yet
-  identified**. Identify and credit the creator, or replace this clip, before
-  any public deploy.
+- **Toronto drone footage (Chapters 1 & 3)** — `public/video/toronto-ch1.mp4`
+  and `toronto-ch3.mp4`, short windows trimmed and re-encoded from a YouTube
+  drone film: "Toronto, Canada – by drone [4K]" —
+  https://www.youtube.com/watch?v=NS1_JEPJjHA
+- **Toronto drone footage (hero + Chapter 2)** — `public/video/toronto-hero.mp4`
+  and `toronto-ch2.mp4`, trimmed and re-encoded from a downloaded 4K clip whose
+  original source is **not yet identified**. Identify and credit the creator,
+  or replace this clip, before any public deploy. (The site currently credits
+  "Toronto From Above" — Jake Asner Photo; verify this is the actual source.)
 - **Other Toronto drone film referenced** —
   "Toronto, Canada in 4K ULTRA HD Video by Drone" — https://www.youtube.com/watch?v=dL1uxqh0l0c
 - **`me/samsung.jpg`** — photo from INsauga's article about the Samsung Solve
