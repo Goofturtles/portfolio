@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arjun Sharma: portfolio, plain list</title>
+<meta name="description" content="Everything in Arjun Sharma's portfolio as one plain page: projects, films, how he works, results, about, contact.">
+<link rel="icon" type="image/svg+xml" href="media/icons/mark.svg">
+<!-- The whole portfolio as one simple page: headings, lists and links, no motion, no pictures. The same sections the
+     room's apps show (js/sections.js), from the same data (apps/gen/data.js). -->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0 auto; padding: 20px 18px 60px; max-width: 46rem; font: 17px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  a { text-underline-offset: 3px; }
+  header a, .links a, li > a { display: inline-block; padding: 10px 0; margin-right: 18px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 14px 0 6px; }
+  h2 { font-size: 1.5rem; line-height: 1.25; margin: 2.2em 0 .5em; padding-top: .6em; border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent); }
+  h3 { font-size: 1.12rem; margin: 1.5em 0 .1em; }
+  p { margin: .3em 0; }
+  ul, ol { padding-left: 1.3em; margin: .4em 0; }
+  .cards, .films, .rows { list-style: none; padding: 0; }
+  .rows li, .steps li, .films li { margin: .7em 0; }
+  li > strong, .film strong { display: block; }
+  .meta, .note { opacity: .78; }
+  .tags span:not(:last-child)::after { content: " · "; }
+  .tg:not(:last-child)::after { content: ", "; }
+  em { font-style: normal; }
+  dt { font-weight: 600; margin-top: .7em; } dd { margin: 0; }
+  :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="./">Back to the room</a>
+  <h1>Arjun Sharma</h1>
+  <p id="lead"></p>
+  <nav id="toc" aria-label="On this page"></nav>
+</header>
+<main id="list"></main>
+<noscript><p>This page fills in from Arjun's data with JavaScript. Email: arjunlearns@gmail.com</p></noscript>
+<script src="apps/gen/data.js"></script>
+<script src="apps/gen/engine.js"></script>
+<script src="apps/lookup.js"></script>
+<script type="module">
+  import { SECTIONS, sectionHTML } from './js/sections.js'
+  const D = window.DATA
+  document.getElementById('lead').textContent = D.profile.summary
+  document.getElementById('list').innerHTML = SECTIONS.map(([id]) => sectionHTML(id, { images: false })).join('')
+  for (const s of document.querySelectorAll('[data-sec]')) s.id = s.dataset.sec
+  document.getElementById('toc').innerHTML = SECTIONS.map(([id, name]) => `<a href="#${id}">${name}</a>`).join('')
+</script>
+</body>
+</html>

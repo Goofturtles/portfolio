@@ -1,0 +1,457 @@
+{
+ "_about": "The only file the site reads to find its pictures. Shot team: put a still or a clip in site/media/ and point at it here, or run site/tools/sync_media.py, which fills poster / clip / portrait_* / hold / status / source from the newest renders and leaves everything else (names, hotspots, prefer) as you wrote it. prefer: while a shot has only prop tests, which one stands in for it (a word from its module or folder name; lap = the laptop prop). status: final = the real render; preview or wip = shown with a 'work in progress render' tag; prop = a prop test (one object on a plain ground), tagged the same, and the room's object boxes are not used because the objects are not in the picture; none = no render yet, the site draws a plain stand-in and says so. Hotspots are fractions of the frame: chip = centre of the floating chip, box = [x0, y0, x1, y1] of the object under it (the chip and the box are both the tap target). 'landscape' is the 16:9 frame, 'portrait' the 9:16 one. A theme may carry its own hotspots (the camera is somewhere else in each lighting state); anything it leaves out falls back to the place's. In daylight and blue the Projects chip sits higher than the laptop's top edge would put it, clear of the film's own reaction chips and toasts, which are still in these previews: once the site has plates without them it can come back down to about 0.27.",
+ "stamped": "2026-10-09T23:08:13",
+ "fps": 24,
+ "prefer": {
+  "P2": "lap"
+ },
+ "themes": [
+  {
+   "id": "day",
+   "name": "Daylight",
+   "ui": "light",
+   "shot": "P2",
+   "frame": 320,
+   "range": [307, 340]
+  },
+  {
+   "id": "grey",
+   "name": "Grey",
+   "ui": "light",
+   "shot": "P2",
+   "frame": 362,
+   "range": [341, 366]
+  },
+  {
+   "id": "blue",
+   "name": "Blue",
+   "ui": "dark",
+   "shot": "P2",
+   "frame": 378,
+   "range": [367, 386]
+  },
+  {
+   "id": "pink",
+   "name": "Blue and pink",
+   "ui": "dark",
+   "shot": "P2",
+   "frame": 417,
+   "range": [387, 417]
+  },
+  {
+   "id": "dusk",
+   "name": "Dusk meadow",
+   "ui": "dark",
+   "shot": "P5",
+   "frame": 1221,
+   "range": [1176, 1221]
+  }
+ ],
+ "default_theme": "pink",
+ "places": {
+  "room": {
+   "_about": "P2 held on a frame of each lighting state; the dusk meadow is P5. The four P2 themes share one clip: changing theme plays it from one hold to the other.",
+   "hotspots": {
+    "landscape": {
+     "projects": {
+      "chip": [0.522, 0.27],
+      "box": [0.388, 0.329, 0.656, 0.685]
+     },
+     "ai": {
+      "chip": [0.784, 0.4],
+      "box": [0.76, 0.455, 0.808, 0.53]
+     },
+     "how": {
+      "chip": [0.304, 0.82],
+      "box": [0.218, 0.674, 0.39, 0.761]
+     },
+     "results": {
+      "chip": [0.626, 0.11],
+      "box": [0.6, 0.167, 0.651, 0.532]
+     },
+     "about": {
+      "chip": [0.82, 0.75],
+      "box": [0.64, 0.8, 1, 1]
+     },
+     "contact": {
+      "chip": [0.308, 0.455],
+      "box": [0.283, 0.512, 0.333, 0.64]
+     },
+     "themes": {
+      "chip": [0.175, 0.4],
+      "box": [0.116, 0.46, 0.233, 0.72]
+     }
+    },
+    "portrait": {
+     "themes": {
+      "chip": [0.28, 0.14],
+      "box": null
+     },
+     "results": {
+      "chip": [0.72, 0.205],
+      "box": null
+     },
+     "projects": {
+      "chip": [0.5, 0.3],
+      "box": [0.06, 0.35, 0.94, 0.68]
+     },
+     "contact": {
+      "chip": [0.27, 0.745],
+      "box": null
+     },
+     "ai": {
+      "chip": [0.73, 0.745],
+      "box": null
+     },
+     "how": {
+      "chip": [0.3, 0.835],
+      "box": null
+     },
+     "about": {
+      "chip": [0.72, 0.835],
+      "box": null
+     }
+    }
+   },
+   "themes": {
+    "day": {
+     "poster": "media/plates/room-day-2560.jpg",
+     "clip": "media/clips/p2-desk.mp4",
+     "portrait_poster": null,
+     "portrait_clip": null,
+     "hold": 0.542,
+     "status": "final",
+     "source": "film/renders/P2/plate-s6/0320.png",
+     "hotspots": {
+      "landscape": {
+       "projects": {
+        "chip": [0.52, 0.135],
+        "box": [0.39, 0.33, 0.65, 0.71]
+       },
+       "ai": {
+        "chip": [0.908, 0.66],
+        "box": [0.878, 0.722, 0.938, 0.819]
+       },
+       "how": {
+        "chip": [0.274, 0.66],
+        "box": [0.198, 0.548, 0.35, 0.6]
+       },
+       "results": {
+        "chip": [0.772, 0.15],
+        "box": [0.735, 0.21, 0.81, 0.68]
+       },
+       "about": {
+        "chip": [0.29, 0.88],
+        "box": [0.044, 0.796, 0.539, 1]
+       },
+       "contact": {
+        "chip": [0.392, 0.37],
+        "box": [0.374, 0.431, 0.411, 0.554]
+       },
+       "themes": {
+        "chip": [0.3, 0.25],
+        "box": [0.26, 0.308, 0.363, 0.531]
+       }
+      }
+     },
+     "plates": {
+      "desk": {
+       "w": 2560,
+       "h": 1440,
+       "avif": "media/plates/room-day-2560.avif",
+       "webp": "media/plates/room-day-2560.webp",
+       "jpg": "media/plates/room-day-2560.jpg"
+      },
+      "phone": {
+       "w": 1920,
+       "h": 1080,
+       "avif": "media/plates/room-day-1920.avif",
+       "webp": "media/plates/room-day-1920.webp",
+       "jpg": "media/plates/room-day-1920.jpg"
+      }
+     },
+     "clips": {
+      "desk": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      },
+      "phone": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      }
+     }
+    },
+    "grey": {
+     "poster": "media/plates/room-grey-2560.jpg",
+     "clip": "media/clips/p2-desk.mp4",
+     "portrait_poster": null,
+     "portrait_clip": null,
+     "hold": 2.292,
+     "status": "final",
+     "source": "film/renders/P2/plate-s6/0362.png",
+     "hotspots": {
+      "landscape": {
+       "projects": {
+        "chip": [0.538, 0.31],
+        "box": [0.423, 0.375, 0.652, 0.671]
+       },
+       "ai": {
+        "chip": [0.89, 0.51],
+        "box": [0.867, 0.569, 0.913, 0.639]
+       },
+       "how": {
+        "chip": [0.237, 0.72],
+        "box": [0.161, 0.551, 0.313, 0.653]
+       },
+       "results": {
+        "chip": [0.785, 0.16],
+        "box": [0.756, 0.222, 0.814, 0.602]
+       },
+       "about": {
+        "chip": [0.26, 0.88],
+        "box": [0.099, 0.81, 0.422, 1]
+       },
+       "contact": {
+        "chip": [0.38, 0.4],
+        "box": [0.356, 0.46, 0.404, 0.579]
+       },
+       "themes": {
+        "chip": [0.245, 0.3],
+        "box": [0.198, 0.363, 0.293, 0.565]
+       }
+      }
+     },
+     "plates": {
+      "desk": {
+       "w": 2560,
+       "h": 1440,
+       "avif": "media/plates/room-grey-2560.avif",
+       "webp": "media/plates/room-grey-2560.webp",
+       "jpg": "media/plates/room-grey-2560.jpg"
+      },
+      "phone": {
+       "w": 1920,
+       "h": 1080,
+       "avif": "media/plates/room-grey-1920.avif",
+       "webp": "media/plates/room-grey-1920.webp",
+       "jpg": "media/plates/room-grey-1920.jpg"
+      }
+     },
+     "clips": {
+      "desk": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      },
+      "phone": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      }
+     }
+    },
+    "blue": {
+     "poster": "media/plates/room-blue-2560.jpg",
+     "clip": "media/clips/p2-desk.mp4",
+     "portrait_poster": null,
+     "portrait_clip": null,
+     "hold": 2.958,
+     "status": "final",
+     "source": "film/renders/P2/plate-s6/0378.png",
+     "hotspots": {
+      "landscape": {
+       "projects": {
+        "chip": [0.52, 0.13],
+        "box": [0.414, 0.322, 0.625, 0.681]
+       },
+       "ai": {
+        "chip": [0.86, 0.48],
+        "box": [0.815, 0.542, 0.858, 0.611]
+       },
+       "how": {
+        "chip": [0.285, 0.8],
+        "box": [0.195, 0.602, 0.376, 0.736]
+       },
+       "results": {
+        "chip": [0.727, 0.135],
+        "box": [0.701, 0.196, 0.753, 0.56]
+       },
+       "about": {
+        "chip": [0.71, 0.8],
+        "box": [0.509, 0.718, 0.911, 1]
+       },
+       "contact": {
+        "chip": [0.325, 0.435],
+        "box": [0.302, 0.495, 0.349, 0.611]
+       },
+       "themes": {
+        "chip": [0.195, 0.355],
+        "box": [0.142, 0.417, 0.247, 0.645]
+       }
+      }
+     },
+     "plates": {
+      "desk": {
+       "w": 2560,
+       "h": 1440,
+       "avif": "media/plates/room-blue-2560.avif",
+       "webp": "media/plates/room-blue-2560.webp",
+       "jpg": "media/plates/room-blue-2560.jpg"
+      },
+      "phone": {
+       "w": 1920,
+       "h": 1080,
+       "avif": "media/plates/room-blue-1920.avif",
+       "webp": "media/plates/room-blue-1920.webp",
+       "jpg": "media/plates/room-blue-1920.jpg"
+      }
+     },
+     "clips": {
+      "desk": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      },
+      "phone": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      }
+     }
+    },
+    "pink": {
+     "poster": "media/plates/room-pink-2560.jpg",
+     "clip": "media/clips/p2-desk.mp4",
+     "portrait_poster": null,
+     "portrait_clip": null,
+     "hold": 4.583,
+     "status": "final",
+     "source": "film/renders/P2/plate-s6/0417.png",
+     "plates": {
+      "desk": {
+       "w": 2560,
+       "h": 1440,
+       "avif": "media/plates/room-pink-2560.avif",
+       "webp": "media/plates/room-pink-2560.webp",
+       "jpg": "media/plates/room-pink-2560.jpg"
+      },
+      "phone": {
+       "w": 1920,
+       "h": 1080,
+       "avif": "media/plates/room-pink-1920.avif",
+       "webp": "media/plates/room-pink-1920.webp",
+       "jpg": "media/plates/room-pink-1920.jpg"
+      }
+     },
+     "clips": {
+      "desk": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      },
+      "phone": {
+       "src": "media/clips/p2-desk.mp4",
+       "w": 960,
+       "h": 540,
+       "fps": 24,
+       "keyint": 6
+      }
+     }
+    },
+    "dusk": {
+     "poster": null,
+     "clip": null,
+     "portrait_poster": null,
+     "portrait_clip": null,
+     "hold": 0,
+     "status": "none",
+     "source": null,
+     "hotspots": {
+      "landscape": {
+       "projects": {
+        "chip": [0.5, 0.3],
+        "box": [0.36, 0.36, 0.64, 0.7]
+       },
+       "ai": {
+        "chip": [0.78, 0.42],
+        "box": null
+       },
+       "how": {
+        "chip": [0.27, 0.8],
+        "box": null
+       },
+       "results": {
+        "chip": [0.7, 0.16],
+        "box": null
+       },
+       "about": {
+        "chip": [0.76, 0.8],
+        "box": null
+       },
+       "contact": {
+        "chip": [0.25, 0.46],
+        "box": null
+       },
+       "themes": {
+        "chip": [0.22, 0.2],
+        "box": null
+       }
+      }
+     }
+    }
+   }
+  },
+  "tunnel": {
+   "_about": "P1, played forwards between places. With no clip the site draws a plain stand-in tunnel.",
+   "shot": "P1",
+   "frame": 110,
+   "poster": null,
+   "clip": null,
+   "portrait_poster": null,
+   "portrait_clip": null,
+   "hold": 0,
+   "status": "none",
+   "source": null
+  },
+  "pages": {
+   "_about": "P3's fan, held on its last frame, behind the sheets (the sheets themselves are drawn by the site, so they can be read and tapped).",
+   "shot": "P3",
+   "frame": 670,
+   "poster": null,
+   "clip": null,
+   "portrait_poster": null,
+   "portrait_clip": null,
+   "hold": 0,
+   "status": "none",
+   "source": null
+  },
+  "desktop": {
+   "_about": "The laptop's desktop is drawn by the site (taskbar and windows). Its wallpaper is the bloom loop (film/renders/bloom/): the clip plays on a loop behind the windows, last frame leading into the first. With no clip (and for a visitor who asks for reduced motion) the poster is shown; with neither, film/ui's drawn petals sway.",
+   "shot": "bloom",
+   "frame": 0,
+   "poster": "media/wip/desktop.jpg",
+   "clip": "media/bloom.mp4",
+   "portrait_poster": "media/wip/desktop-portrait.jpg",
+   "portrait_clip": null,
+   "hold": 0.0,
+   "status": "preview",
+   "source": "film/renders/bloom/preview-b1/0000.png"
+  }
+ }
+}

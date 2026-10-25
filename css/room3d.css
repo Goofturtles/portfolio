@@ -1,0 +1,11 @@
+/* The room as live 3D (js/room3d/). Reference: film/SPEC.md, "The room is real-time 3D". The canvas lies over the
+   still, which stays underneath as the picture shown while the scene loads and as the whole room when there is no
+   WebGL, when motion is reduced, or when the visitor is saving data. Timings are the tokens in css/motion.css. */
+#room canvas.r3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: 0; opacity: 0; touch-action: none; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; cursor: default; transition: opacity var(--m-fade) var(--m-std); }
+#room.live3d canvas.r3d { opacity: 1; }
+#room.live3d.point canvas.r3d { cursor: pointer; }
+#room.live3d.grab canvas.r3d { cursor: grabbing; }
+/* once the live room is up, the still and its hit boxes are out of the way (kept in the page for the fallback) */
+#room.live3d .frame, #room.live3d .spots { visibility: hidden; transition: visibility 0s var(--m-fade); }
+#room:not(.live3d) canvas.r3d { pointer-events: none; }

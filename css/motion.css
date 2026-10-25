@@ -1,0 +1,36 @@
+/* Motion tokens: the one set of durations and curves the site moves with (film/SPEC.md, "The film's smoothness
+   everywhere"). Reference: the measured curves in film/research/P2.md (the camera table in section 2.0, the pills in
+   section 8.1). The room's 3D camera reads these through js/room3d/motion.js; nothing in the room uses another curve.
+   The shell's own Fluent curves (--f-in, --f-out, --f-std in css/shell.css) are repeated here under film names. */
+:root {
+  /* The film's orbit round the desk (f311 to f417, 106 frames): it eases in over the first 32 frames, cruises at
+     1.1 degrees a frame for 37, and eases out in one long breath over the last 37. A trapezoid with those ramps peaks
+     at 1.48 times its mean speed; a cubic bezier (a, 0, 1-a, 1) peaks at 1 / (1 - a), so a = 0.32, and the out-ramp
+     is the longer one. */
+  --m-cam: cubic-bezier(.32, 0, .62, 1);
+  --m-cam-near: 1400ms;            /* a theme change between neighbours (day-grey, grey-blue, blue-pink) */
+  --m-cam-mid: 1900ms;             /* two apart */
+  --m-cam-far: 2400ms;             /* day to pink: the whole arc */
+  /* The pull-back at the cut (f307 to f318): no ease-in, full speed on the first frame, dying away with a half-life
+     of about 4 frames. Used where something lets go and settles. */
+  --m-settle: cubic-bezier(.12, .78, .22, 1);
+  --m-settle-ms: 900ms;
+  /* Into the laptop and out again: leaves gently, lands softly (no tunnel after it: the desktop is on the laptop). */
+  --m-dive: cubic-bezier(.55, 0, .2, 1);    /* in: eases off the room, a long soft landing on the screen */
+  --m-rise: cubic-bezier(.45, 0, .2, 1);    /* out: lets go of the screen gently, settles back in the room */
+  --m-dive-ms: 1400ms;
+  --m-rise-ms: 1250ms;
+  --m-approach-ms: 620ms;          /* the push toward an object whose place opens over the room */
+  /* The pills: in over 3 to 4 frames (about 150 ms) with a touch of overshoot in height, 20, 14, 4, 2 px a frame. */
+  --m-pop: cubic-bezier(.2, 1.35, .4, 1);
+  --m-pop-ms: 160ms;
+  --m-stagger: 120ms;              /* one after another: the pills, the light's sweep over the objects */
+  /* Hover light: the rendered pass came up in 200 ms and went down in 300 ms. */
+  --m-hover-in: 200ms;
+  --m-hover-out: 300ms;
+  --m-tip-wait: 350ms;             /* Windows shows a name after a short pause */
+  --m-in: cubic-bezier(.1, .9, .2, 1);
+  --m-out: cubic-bezier(.7, 0, 1, .5);
+  --m-std: cubic-bezier(.8, 0, .2, 1);
+  --m-fade: 300ms;
+}

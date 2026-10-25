@@ -1,0 +1,69 @@
+/* The pictures on the room's wall (js/room3d/wall.js) and the résumé they open (js/resume.js). Loaded by wall.js.
+   The viewer is the site's own glass: the acrylic of Windows Search (css/shell.css .sf: 8 px corners, a 1 px stroke,
+   blur 40 px), a 48 px title bar with the window's name, its actions on the right; the room stays behind it, dimmed
+   and softly blurred. On a phone it fills the screen. Motion: up in .25 s on the site's --f-in, away in .15 s. */
+
+/* the photo for the keyboard: a button kept over the frame, seen only as a focus ring */
+#room .wall-key { position: absolute; left: 0; top: 0; width: 1px; height: 1px; z-index: 41; margin: 0; padding: 0; border: 0; border-radius: 3px; background: none; opacity: 1; pointer-events: none; }
+#room .wall-key:focus { outline: 0; }
+#room .wall-key:focus-visible { outline: 2.5px solid var(--accent, #005fb8); outline-offset: 5px; }
+#room:not(.live3d) .wall-key { display: none; }
+
+.rv { position: absolute; inset: 0; z-index: 80; display: grid; place-items: center; font: 400 14px/1.4 var(--ft); color: #1b1b1b; }
+.rv-back { position: absolute; inset: 0; background: rgba(18, 16, 30, .34); -webkit-backdrop-filter: blur(9px) saturate(1.1); backdrop-filter: blur(9px) saturate(1.1); animation: rv-fade .25s ease both; }
+.rv-win { position: relative; display: flex; flex-direction: column; width: min(900px, calc(100% - 48px)); height: min(1180px, calc(100% - 112px)); box-sizing: border-box; overflow: hidden; border-radius: 8px; outline: 0;
+  background: rgba(243, 243, 243, .92); -webkit-backdrop-filter: blur(40px) saturate(1.5); backdrop-filter: blur(40px) saturate(1.5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 32px 64px rgba(0, 0, 0, .22), 0 2px 21px rgba(0, 0, 0, .15); animation: rv-up .25s var(--f-in, ease) both; }
+.rv-bar { display: flex; align-items: center; gap: 8px; height: 48px; flex: none; padding: 0 8px 0 16px; }
+.rv-title { flex: 1; min-width: 0; margin: 0; font: 600 14px/20px var(--ft); letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-dl { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 0; border-radius: 4px; box-sizing: border-box; background: rgba(255, 255, 255, .7); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08), 0 1px 0 rgba(0, 0, 0, .06);
+  color: #1b1b1b; font: 400 14px/20px var(--ft); text-decoration: none; cursor: pointer; transition: background-color .15s ease; }
+.rv-dl:hover { background: rgba(255, 255, 255, .95); }
+.rv-dl svg, .rv-x svg { width: 16px; height: 16px; flex: none; }
+.rv-x { display: grid; place-items: center; width: 40px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: none; color: #1b1b1b; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.rv-x:hover { background: #c42b1c; color: #fff; }
+.rv-dl:focus-visible, .rv-x:focus-visible { outline: 2.5px solid var(--accent, #005fb8); outline-offset: 2px; }
+.rv-doc { flex: 1; width: 100%; min-height: 0; border: 0; border-top: 1px solid rgba(0, 0, 0, .08); background: #fff; display: block; }      /* the résumé page itself (media/resume/resume.html) */
+
+/* Download asks first: a small dialog of the same glass inside the window, the room's Windows-style buttons
+   (the accent one first), the window behind it dimmed a little */
+.rv-ask { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: rgba(18, 16, 30, .18); animation: rv-fade .18s ease both; }
+.rv-ask-card { width: min(380px, calc(100% - 32px)); box-sizing: border-box; padding: 20px 20px 18px; border-radius: 8px; background: rgba(249, 249, 249, .96); -webkit-backdrop-filter: blur(40px) saturate(1.5); backdrop-filter: blur(40px) saturate(1.5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 16px 32px rgba(0, 0, 0, .2), 0 2px 8px rgba(0, 0, 0, .1); animation: rv-up .22s var(--f-in, ease) both; }
+.rv-ask-top { display: flex; gap: 14px; align-items: flex-start; }
+.rv-ask-ico { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(215, 25, 32, .09); color: #c4161d; }
+.rv-ask-ico svg { width: 22px; height: 22px; }
+.rv-ask h3 { margin: 1px 0 2px; font: 600 15px/21px var(--ft); color: #1b1b1b; }
+.rv-ask p { margin: 0; font: 400 13px/18px var(--ft); color: #5d5d5d; }
+.rv-ask-go { display: flex; gap: 8px; margin-top: 20px; }
+.rv-ask-go button { flex: 1; height: 34px; border: 0; border-radius: 4px; font: 400 14px/20px var(--ft); cursor: pointer; transition: background-color .15s ease; }
+.rv-ask-yes { background: var(--accent, #005fb8); color: #fff; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .2); }
+.rv-ask-yes:hover { background: color-mix(in srgb, var(--accent, #005fb8) 90%, #fff); }
+.rv-ask-no { background: #fff; color: #1b1b1b; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), 0 1px 0 rgba(0, 0, 0, .06); }
+.rv-ask-no:hover { background: #f6f6f6; }
+.rv-ask-go button:focus-visible { outline: 2.5px solid var(--accent, #005fb8); outline-offset: 2px; }
+.rv-ask.closing { animation: rv-fade-out .14s ease forwards; }
+.site[data-ui="dark"] .rv-ask-card { background: rgba(44, 44, 44, .96); box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 16px 32px rgba(0, 0, 0, .4); }
+.site[data-ui="dark"] .rv-ask h3 { color: #fff; }
+.site[data-ui="dark"] .rv-ask p { color: #c5c5c5; }
+.site[data-ui="dark"] .rv-ask-no { background: rgba(255, 255, 255, .06); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.rv.closing .rv-back { animation: rv-fade-out .15s ease forwards; }
+.rv.closing .rv-win { animation: rv-down .15s var(--f-out, ease) forwards; }
+
+.site[data-ui="dark"] .rv-win { background: rgba(36, 36, 36, .92); box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 32px 64px rgba(0, 0, 0, .4), 0 2px 21px rgba(0, 0, 0, .3); color: #fff; }
+.site[data-ui="dark"] .rv-dl { background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); color: #fff; }
+.site[data-ui="dark"] .rv-dl:hover { background: rgba(255, 255, 255, .1); }
+.site[data-ui="dark"] .rv-x { color: #fff; }
+.site[data-ui="dark"] .rv-doc { border-top-color: rgba(255, 255, 255, .08); }
+
+@media (max-width: 640px), (hover: none) and (pointer: coarse) and (max-width: 900px) {
+  .rv-win { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+  .rv-bar { height: 56px; padding-top: env(safe-area-inset-top); }
+  .rv-x { width: 48px; height: 48px; }
+  .rv-dl { height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .rv-win, .rv-back, .rv.closing .rv-win, .rv.closing .rv-back { animation-duration: .01s; } }
+@keyframes rv-fade { from { opacity: 0; } }
+@keyframes rv-fade-out { to { opacity: 0; } }
+@keyframes rv-up { from { opacity: 0; transform: translateY(24px); } }
+@keyframes rv-down { to { opacity: 0; transform: translateY(24px); } }

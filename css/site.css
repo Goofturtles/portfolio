@@ -1,0 +1,238 @@
+/* The site's own layer. The film's interface keeps its own stylesheets (apps/*.css, copied from film/ui/ and never
+   edited); this file is the stage, the places, the motion, and what makes the film's interface live and phone-sized.
+   Motion: one set of curves, nothing pops. --ease settles, --over overshoots a little, --push is the camera going in. */
+:root {
+  --ft: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --fd: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --fs: "Segoe UI Variable Small", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --ease: cubic-bezier(.22, .8, .24, 1); --over: cubic-bezier(.3, 1.45, .5, 1); --push: cubic-bezier(.6, 0, .9, .4);
+  --hi: var(--accent-lo);            /* accent as text: dark enough on light surfaces */
+}
+html, body { height: 100%; margin: 0; background: #14131a; overflow: hidden; overscroll-behavior: none; }
+body { font: 400 16px/1.45 var(--ft); color: #1d1b22; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
+button, input { font-family: inherit; }
+#app { position: fixed; inset: 0; overflow: hidden; }
+.place { position: absolute; inset: 0; overflow: hidden; outline: 0; }
+[hidden] { display: none !important; }
+
+/* ---- what floats over every place ---- */
+.site:has(#desktop.desk:not([hidden]):not(.dormant)) .hud { display: none; }               /* there the taskbar carries Room and Plain list */
+.site:has(#desktop.phone:not([hidden])) .hud { background: #f3f3f3; box-shadow: 0 1px 0 rgba(0, 0, 0, .08); transition: background-color .45s ease; }   /* the app's top bar: solid, the page scrolls under it */
+.site[data-ui="dark"]:has(#desktop.phone:not([hidden])) .hud { background: #202020; box-shadow: 0 1px 0 rgba(255, 255, 255, .08); }
+.toast { position: absolute; left: 50%; top: 70px; z-index: 60; width: max-content; max-width: calc(100% - 32px); box-sizing: border-box; padding: 10px 16px; border-radius: 12px; background: rgba(22, 20, 34, .88); color: #fff; font: 400 14px/1.4 var(--ft); text-align: center;
+  opacity: 0; transform: translate(-50%, -8px); transition: opacity .25s ease, transform .3s var(--ease); pointer-events: none; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+
+/* ---- the room ---- */
+/* The change of place while no render of the flight exists (js/room.js leave()): the picture is scaled into the laptop's
+   box over half a second on the standard curve, and fades under the place that is arriving. */
+#room .frame { position: absolute; inset: 0; will-change: transform; transition: transform .52s var(--f-std), opacity .22s ease .3s; }
+#room.out .frame { transform: var(--zoom, scale(1.6)); opacity: 0; }
+
+/* ---- the flight (P1): only its clip, once that render exists (js/tunnel.js). Nothing is drawn in its place. ---- */
+#tunnel { z-index: 30; background: #000; opacity: 0; transition: opacity .32s ease; cursor: pointer; }
+#tunnel.on { opacity: 1; }
+.tn-bloom { position: absolute; inset: 0; background: radial-gradient(circle, #fff 0, rgba(255, 255, 255, .92) 32%, rgba(255, 255, 255, 0) 72%); opacity: 0; transform: scale(.2); transition: opacity .2s ease-in, transform .2s ease-in; }
+#tunnel.end .tn-bloom { opacity: 1; transform: scale(2.6); }
+.tn-skip { position: absolute; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+
+/* ---- the mini desktop (wide screens with a mouse): film/ui's wallpaper, taskbar and windows ---- */
+#desktop, #pages { transition: opacity .28s ease; }
+#desktop.leaving, #pages.leaving { opacity: 0; }
+#desktop.arriving, #pages.arriving { animation: fade .3s ease both; }      /* a place arrives as a cross-fade over the one that is leaving */
+@keyframes fade { from { opacity: 0; } }
+.wall.fresh { animation: fade .6s ease both; }
+/* the wallpaper: the Windows 11 bloom (js/desktop.js makeWall). The plain picture is the ground, js/bloom.js draws the moving one over it, cropped the same way. */
+.wall.real { background: #050b1a 50% 50% / cover no-repeat; }
+.wall.real i { display: none; }
+.wall canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: fade .8s ease both; }
+/* with no render, film/ui's drawn petals: they sway, each in its own time */
+.wall:not(.real) i { animation: petal 8s ease-in-out infinite alternate; }
+.wall:not(.real) i:nth-child(2) { animation-delay: -1.4s; } .wall:not(.real) i:nth-child(3) { animation-delay: -2.8s; } .wall:not(.real) i:nth-child(4) { animation-delay: -4.2s; }
+.wall:not(.real) i:nth-child(5) { animation-delay: -5.6s; } .wall:not(.real) i:nth-child(6) { animation-delay: -7s; }
+@keyframes petal { from { rotate: -2.4deg; scale: 1; } to { rotate: 2.4deg; scale: 1.035; } }
+.wbx button:focus-visible, [data-ask]:focus-visible, .tk:focus-visible, .tb-b:focus-visible, .sheet [data-go]:focus-visible, .wbody:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+
+/* the film's document, made live. What the film shows as dressing and a visitor could mistake for something real
+   (reactions from people, other people's cursors, buttons that add things) is not shown on the site. */
+.site .overlay, .site .sbar, .site .doc > .chips, .site .panel .ph .btn { display: none; }
+.site .tr.addrow > * { visibility: hidden; }
+.site .rhead .avs { display: none; }
+/* the three cards at the top of the document: the picture fills the card under its title row, edge to edge, as in the
+   film (f_0720). film/ui places it in the right two thirds and lets the card cut it; here it is whole and covers. */
+.site .file .fp { left: 0; right: 0; top: 64px; bottom: 0; border-left: 0; border-top: 1px solid var(--line); }
+.site .file .fp i { background-size: cover !important; background-position: 50% 0 !important; }
+[data-ask] { cursor: pointer; }
+
+/* film/ui's views, left alone (film/SPEC.md "Never static"): the spark of AI Arjun's overview twinkles, and on its start page the shortcuts bob in a slow wave */
+.site .g-ai-h .ic, .mo-h > span[aria-hidden] { display: inline-flex; animation: twinkle 3.2s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { transform: none; opacity: 1; } 50% { transform: scale(1.2) rotate(18deg); opacity: .7; } }
+.site .n-tiles a > span:first-child { animation: bob 5.2s ease-in-out infinite; }
+.site .n-tiles li:nth-child(3n + 2) a > span:first-child { animation-delay: -1.7s; } .site .n-tiles li:nth-child(3n) a > span:first-child { animation-delay: -3.4s; }
+
+/* a section in the film's glass window */
+/* a change of theme eases over: for half a second everything inside eases its colours (js/desktop.js setTheme) */
+#desktop.retheme *, #desktop.retheme { transition: background-color .45s ease, color .45s ease, box-shadow .45s ease !important; }
+
+
+/* ---- his content as plain sections: the small windows, the phone's app (colours follow .light / .dark) ---- */
+.sec { font: 400 15.5px/1.5 var(--ft); color: var(--body); overflow-wrap: break-word; }
+.sec h2 { margin: 32px 0 12px; font: 600 26px/1.25 var(--fd); color: var(--ink); letter-spacing: 0; }
+.sec > .s:first-child > h2 { margin-top: 6px; }
+.sec h3 { margin: 0 0 2px; font: 600 17.5px/1.3 var(--fd); color: var(--ink); }
+.sec p { margin: 0 0 8px; }
+.sec ul, .sec ol { list-style: none; margin: 0; padding: 0; }
+.sec strong { font-weight: 600; color: var(--ink); }
+.sec em { font-style: normal; }
+.sec a { color: var(--link); }
+.sec .lead { font: 400 17.5px/1.45 var(--ft); color: var(--ink); }
+.cards, .steps, .rows { display: grid; gap: 10px; }
+.card, .steps li, .rows li, .film { background: var(--card-solid); border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), inset 0 0 0 1px var(--line); }
+.card, .steps li, .rows li { padding: 14px 16px; }
+.card .meta { color: var(--soft); font-size: 14px; }
+.sec .tags, .mo .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.sec .tags span, .mo .tags span { padding: 3px 10px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; line-height: 1.45; color: var(--soft); }
+.sec .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.sec .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 13%, var(--card-solid)); color: var(--hi); font: 600 14.5px/1.3 var(--ft); text-decoration: none; white-space: nowrap; }
+.sec .btn:hover { background: color-mix(in srgb, var(--accent) 22%, var(--card-solid)); }
+.sec a:focus-visible, .mr:focus-visible, .mp button:focus-visible, .mb-tabs button:focus-visible, .mb-go:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+.films { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; align-items: start; }
+.film { display: block; overflow: hidden; text-decoration: none; }
+.film img { display: block; width: 100%; height: auto; background: var(--line); }       /* the whole still, never cropped */
+.film span { display: block; padding: 10px 14px 12px; }
+.film strong { display: block; }
+.film em { color: var(--link); font-size: 14px; }
+.steps { counter-reset: step; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; column-gap: 14px; align-items: center; }
+.steps li::before { content: counter(step); grid-row: 1 / 3; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font: 600 15px/1.25 var(--fd); }
+.steps li > * { grid-column: 2; }
+.steps span, .rows span { color: var(--soft); }
+.rows li { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; }
+.rows li > strong, .rows li > span { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.rows li > .btn { grid-column: 2; grid-row: 1 / 3; }
+dl.about { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 14px 0 0; }
+dl.about dt { font-weight: 600; color: var(--soft); }
+dl.about dd { margin: 0; }
+.sec dl.about .tg { display: inline-block; margin: 0 5px 6px 0; padding: 2px 10px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); background: var(--card-solid); animation: bob 5.2s ease-in-out infinite; animation-delay: calc(var(--i) * -.41s); }      /* his interests, values and tools float a little, each in its own time */
+.sec .note { margin-top: 12px; font-size: 14px; color: var(--soft); }
+
+/* ---- the mini desktop on a phone: one full-screen app, the taskbar as a bottom bar with names ---- */
+#desktop.phone { background: var(--page); color: var(--body); }
+/* under the top bar and over the bottom bar: one screen per app, the one in use shown (js/desktop.js showPhone) */
+.m-body { position: absolute; left: 0; right: 0; top: calc(max(8px, env(safe-area-inset-top)) + 58px); bottom: calc(66px + env(safe-area-inset-bottom)); overflow: hidden; }
+.m-app { position: absolute; inset: 0; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; outline: 0; }
+.m-app.in { animation: screen .34s var(--ease) both; }
+@keyframes screen { from { opacity: 0; transform: translateY(14px); } }
+.m-app.wapp { overflow: hidden; }                                                       /* an app scrolls inside itself */
+.m-sec { max-width: 720px; margin: 0 auto; padding: 14px 16px 28px; }                   /* a touch tablet gets the same app, as one readable column */
+.m-ai { padding: 8px 16px 28px; }
+.m-ai > .mb { max-width: 720px; margin-left: auto; margin-right: auto; }
+/* the first screen: who he is over the wallpaper, then every app as a row */
+.m-home { max-width: 720px; margin: 0 auto; padding-bottom: 24px; }
+.m-hero { position: relative; height: 216px; display: flex; align-items: flex-end; background: #060a20; border-radius: 0 0 22px 22px; overflow: hidden; }
+.m-heroT { position: relative; z-index: 1; padding: 0 18px 16px; color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
+.m-heroT h1 { margin: 0; font: 600 30px/1.2 var(--fd); }
+.m-heroT p { margin: 2px 0 0; font: 400 15.5px/1.4 var(--ft); }
+.m-home .lead { margin: 16px 18px 12px; font: 400 16.5px/1.45 var(--ft); color: var(--ink); }
+.m-launch { display: grid; gap: 8px; padding: 0 12px; }
+.m-launch button { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 10px 14px; border: 0; border-radius: 16px; background: var(--card-solid); box-shadow: 0 1px 4px rgba(0, 0, 0, .08), inset 0 0 0 1px var(--line); font: 400 15px/1.4 var(--ft); color: var(--body); text-align: left; cursor: pointer;
+  animation: rise .45s var(--ease) both; animation-delay: calc(var(--i) * 55ms + 120ms); -webkit-tap-highlight-color: transparent; }
+.m-launch button:active { transform: scale(.97); }
+.m-launch button > span:not(.pix) { flex: 1; min-width: 0; }
+.m-launch b { display: block; font: 600 17px/1.3 var(--fd); color: var(--ink); }
+.m-launch em { display: block; font-style: normal; font-size: 13.5px; color: var(--soft); overflow-wrap: anywhere; }
+.m-launch svg { width: 16px; height: 16px; flex: none; color: var(--faint); }
+.m-launch .pix { animation: bob 5s ease-in-out infinite; animation-delay: calc(var(--i) * -.7s); }
+.m-launch button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+#desktop.phone { transition: opacity .28s ease, background-color .45s ease, color .45s ease; }
+
+/* AI Arjun as a phone browser page (js/ai.js) */
+.mb { margin: 0 -16px; }
+.mb-bar { display: flex; align-items: center; gap: 8px; height: 48px; margin: 4px 12px 14px; padding: 0 2px 0 14px; border-radius: 24px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--line), 0 1px 4px rgba(0, 0, 0, .08); }
+.mb-bar:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.mb-lock, .mb-go { flex: none; color: var(--soft); }
+.mb-lock { width: 20px; height: 20px; }
+.mb-lock svg, .mb-go svg { display: block; width: 100%; height: 100%; }
+.mb-url { flex: 1; min-width: 0; height: 44px; border: 0; outline: 0; padding: 0; background: transparent; font: 400 16px/1.3 var(--ft); color: var(--ink); }
+.mb-url::placeholder { color: var(--soft); }
+.mb-go { width: 44px; height: 44px; padding: 11px; border: 0; border-radius: 50%; background: none; color: var(--hi); cursor: pointer; box-sizing: border-box; }
+.mb-head { padding: 0 16px; border-bottom: 1px solid var(--line); }
+.mb-mark { display: inline-flex; align-items: baseline; gap: .2em; font: 600 24px/1.3 var(--fd); letter-spacing: 0; color: var(--ink); }
+.mb-mark b { font-weight: 600; color: var(--hi); } .mb-mark i { font-weight: 600; }
+.mb-tabs { display: flex; gap: 4px; margin-top: 4px; }
+.mb-tabs button { flex: none; min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: none; font: 400 14.5px/1.3 var(--ft); color: var(--soft); cursor: pointer; }
+.mb-tabs button[aria-current="page"] { color: var(--hi); border-bottom-color: var(--hi); }
+.mb-page { padding: 14px 16px 8px; font: 400 15.5px/1.5 var(--ft); color: var(--body); }
+.mo { margin-bottom: 8px; padding: 14px 16px 12px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 9%, var(--card-solid)); }
+.mo-h { display: flex; align-items: baseline; gap: 6px; margin: 0 0 6px; font-size: 13.5px; color: var(--soft); }
+.mo-h b { font-weight: 600; color: var(--hi); }
+.mo h2 { margin: 0 0 8px; font: 600 22px/1.25 var(--fd); color: var(--ink); }
+.mo p { margin: 0 0 8px; }
+.mo ul { margin: 0 0 8px; padding-left: 18px; }
+.mo summary { display: flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--hi); cursor: pointer; }
+.mo .mo-src, .mo .mo-fine { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--soft); }
+.mr { display: block; padding: 14px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.mr-site { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.mr-site i { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font: 600 13px/1 var(--ft); color: var(--soft); }   /* one letter */
+.mr-site span { min-width: 0; }
+.mr-site b { display: block; font: 400 14px/1.3 var(--ft); color: var(--ink); }
+.mr-site cite { display: block; font: 400 12px/1.4 var(--ft); color: var(--soft); overflow-wrap: anywhere; }
+.mr-t { display: block; margin-bottom: 4px; font: 400 18px/1.3 var(--ft); color: var(--link); }
+.mr-s { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 14px; line-height: 1.5; color: var(--soft); }   /* a snippet: three lines, on purpose */
+.mb-note { margin: 12px 0; font-size: 14px; color: var(--soft); }
+.mp { margin: 16px 0 4px; }
+.mp h2 { margin: 0 0 2px; font: 600 18px/1.3 var(--fd); color: var(--ink); }
+.mp button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 8px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; font: 400 15.5px/1.35 var(--ft); color: var(--ink); text-align: left; cursor: pointer; }
+
+/* ---- pages: the fanned sheets ---- */
+/* behind the sheets: a plain Windows surface until P3's own last frame is rendered (film/SPEC.md "Backgrounds") */
+#pages .poster { opacity: 1; contain: paint; background: #f3f3f3; transition: background-color .45s ease; }
+.site[data-ui="dark"] #pages .poster { background: #202020; }
+#pages .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.fan { position: absolute; left: 50%; top: 45%; width: 0; height: 0; translate: var(--fx, 0px) 0; transition: translate .62s var(--over); }
+/* the fan (js/pages.js layout): --x --y --r --s place each sheet, --d is how far back it is, --n its number */
+.sheet { position: absolute; left: -300px; top: -400px; border-radius: 8px; background: var(--paper); box-shadow: 0 16px 32px rgba(0, 0, 0, .19), 0 2px 10.67px rgba(0, 0, 0, .15), inset 0 0 0 1px rgba(255, 255, 255, .35); cursor: pointer;
+  transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(calc(var(--k) * var(--s))); transition: transform .62s var(--over), opacity .35s ease, filter .3s ease; transition-delay: calc(var(--d) * 40ms);
+  animation: sway 9s ease-in-out infinite; animation-delay: calc(var(--n) * -1.3s); }
+.sheet.on { cursor: default; animation: none; box-shadow: 0 32px 64px rgba(0, 0, 0, .28), 0 2px 21px rgba(0, 0, 0, .22), inset 0 0 0 1px rgba(255, 255, 255, .35); }       /* the one being read holds still; what is on it moves (css/apps.css, the scenes) */
+.sheet:not(.on) { filter: brightness(.93); }
+.sheet:not(.on) .hsheet > footer { visibility: hidden; }      /* a sheet behind shows no button poking out past the one in front */
+.sheet:not(.on):hover { filter: brightness(1); }
+@keyframes sway { 0%, 100% { translate: 0 -4px; rotate: -.5deg; } 50% { translate: 0 5px; rotate: .5deg; } }      /* left alone, the sheets behind move like paper in the air */
+/* arriving: one small stack opens into the film's ring of pages, and the ring fans out */
+#pages.stack .sheet { transform: scale(calc(var(--k) * .14)); opacity: 0; transition: none; }
+#pages.ring .sheet { transform: rotate(var(--a)) translateY(calc(var(--k) * -230px)) scale(calc(var(--k) * .36)); filter: none; transition: transform .6s var(--over), opacity .3s ease; transition-delay: calc(var(--n) * 34ms); }
+#pages.arriving .pg-steps, #pages.arriving .pg-tabs { opacity: 0; translate: 0 12px; }
+.s0 { --paper: linear-gradient(160deg, #93a2f6, #7384ee); } .sheet.step { --paper: #fff; }
+.s2 { --paper: linear-gradient(160deg, #4a63e2, #3549c4); } .s3 { --paper: linear-gradient(160deg, #f7ecfb, #e9dcf6); }
+.sheet .psheet { --ink: #fff !important; } .s3 .psheet { --ink: #3044c0 !important; }
+.sheet.on [data-go] { cursor: pointer; }
+.sheet.on .ptr[data-go]:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.pg-tabs, .pg-steps { position: absolute; left: 0; right: 0; z-index: 20; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0 12px; transition: opacity .3s ease, translate .4s var(--over); }
+.pg-tabs { bottom: max(16px, env(safe-area-inset-bottom)); }
+.pg-tabs .hb { font-weight: 400; } .pg-tabs .hb[aria-pressed="true"] { font-weight: 600; }
+.pg-steps { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 54px); }
+.pg-steps .hb { width: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+.pg-steps.off { opacity: 0; translate: 0 10px; pointer-events: none; }
+.pg-tabs .hb, .pg-steps .hb { transition: background-color .25s ease, color .25s ease, transform .25s var(--over); }
+.pg-tabs .hb:active, .pg-steps .hb:active { transform: scale(.93); }
+:is(.pg-tabs, .pg-steps) .hb[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 700px) {
+  #pages .psheet { padding: 36px 30px; }
+  #pages .psheet h2 { font-size: 50px; margin-bottom: 24px; }
+  #pages .psheet .ptr { min-height: 78px; font-size: 26px; }             /* rows stay readable at the phone's scale */
+  #pages .psheet .ptr.ph { font-size: 23px; }
+  #pages .s3 .ptr[data-go] { min-height: 100px; }                        /* a row that is a link is 44 px tall even on a small phone */
+  #pages .hsheet > footer span { font-size: 22px; }
+  .pg-tabs { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 34px); }
+  .pg-steps { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 88px); }
+}
+
+/* ---- reduced motion: no flight, no push, no drift; places simply change ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+  #room.out .frame { transform: none; }
+}
+html.calm *, html.calm *::before, html.calm *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+html.calm .wall canvas { display: none; }

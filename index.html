@@ -1,53 +1,98 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Arjun Sharma, student creator: websites, animations, presentations, and interactive projects that make ideas easier to understand."
-    />
-    <meta name="theme-color" content="#0e0f11" />
-    <script>
-      // Dark only: stamp it before first paint and drop any old light choice.
-      document.documentElement.dataset.theme = 'dark'
-      try {
-        localStorage.removeItem('arjun-theme')
-      } catch (e) {}
-    </script>
-    <!-- link-share cards (Discord, LinkedIn, iMessage, Slack) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Arjun Sharma — Portfolio" />
-    <meta
-      property="og:description"
-      content="Student creator portfolio: websites, animations, presentations, and interactive projects that make ideas easier to understand."
-    />
-    <meta property="og:url" content="https://goofturtles.github.io/portfolio/" />
-    <meta property="og:image" content="https://goofturtles.github.io/portfolio/og-card.jpg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Arjun Sharma — student creator in Toronto: websites, animations and interactive projects" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://goofturtles.github.io/portfolio/og-card.jpg" />
-    <link rel="canonical" href="https://goofturtles.github.io/portfolio/" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a0d14'/><path d='M8.4 25 L16 6.4 L23.6 25' fill='none' stroke='%23f1e9d7' stroke-width='3.1' stroke-linecap='round' stroke-linejoin='round'/><path d='M11.7 18.3 L20.3 18.3' fill='none' stroke='%23f1e9d7' stroke-width='3.1' stroke-linecap='round'/><circle cx='24.6' cy='8.4' r='3' fill='%23d71920'/></svg>"
-    />
-    <title>Arjun Sharma — Portfolio</title>
-    <script type="module" crossorigin src="/portfolio/assets/index-B_WVDJW8.js"></script>
-    <link rel="modulepreload" crossorigin href="/portfolio/assets/react-nf7bT_Uh.js">
-    <link rel="modulepreload" crossorigin href="/portfolio/assets/gsap-B203KaRO.js">
-    <link rel="stylesheet" crossorigin href="/portfolio/assets/index-Dlpo1Xg0.css">
-  </head>
-  <body>
-    <div id="root"></div>
-    <noscript>
-      <p style="font-family: sans-serif; padding: 2rem; color: #f1e9d7; background: #0a0d14">
-        This portfolio is an interactive film experience and needs JavaScript.
-        Short version: Arjun Sharma is a Toronto-based student creator building
-        websites, animations, presentations, and interactive projects.
-      </p>
-    </noscript>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arjun Sharma: portfolio</title>
+<meta name="description" content="Arjun Sharma's portfolio: a room you can walk into. Projects, films, results, and AI Arjun, a lookup over his own notes.">
+<meta name="theme-color" content="#14131a">
+<link rel="icon" type="image/svg+xml" href="media/icons/mark.svg">
+<!--
+  One full-screen stage that moves between places (film/notes/briefs/site.md). No build step.
+    js/main.js      start-up, the route in the address (#projects ...), every change of place, themes
+    js/room.js      the room: the picture, its objects as buttons   js/tunnel.js   the clip of the flight, once it exists
+    js/desktop.js   the mini desktop: wallpaper, windows, and its phone layout     js/shell.js  the taskbar (room and desktop), search, window frame
+    js/icons.js     every icon: Fluent System Icons (media/icons/)                css/shell.css  type, buttons, taskbar, frames, the room
+    js/apps/        the apps on it: explorer (Projects), player (Films), board (How I work), trophies (Results), chat (Contact), about
+    js/pages.js     the fanned sheets                              js/ai.js       AI Arjun as a phone browser page
+    js/sections.js  his content as plain sections (About, plain.html, AI Arjun's phone tabs)
+    apps/           film/ui/, copied by tools/sync_ui.py           media/manifest.json   every render, by tools/sync_media.py
+                                                                   media/own.json        his own process material, by tools/sync_own.py
+-->
+<!-- the loader (#boot, below): the first paint is this calm screen, not the still; js/room.js ends it through window.__boot.done() -->
+<style>
+html, body { background: #101012; }
+#boot { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #101012; color: #ececf0; opacity: 1; transition: opacity .6s cubic-bezier(.4, 0, .2, 1); }
+#boot.out { opacity: 0; pointer-events: none; }
+#boot .bn { font: 600 clamp(26px, 4.2vw, 44px)/1.3 "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; letter-spacing: -.01em; animation: bnin .7s ease-out both; }
+#boot .bl { width: clamp(140px, 22vw, 220px); height: 2px; border-radius: 2px; background: rgba(255, 255, 255, .13); overflow: hidden; }
+#boot .bl i { display: block; width: 100%; height: 100%; background: #ececf0; transform: scaleX(0); transform-origin: 0 50%; }
+#boot.calm { transition-duration: .25s; }
+#boot.calm .bn { animation: none; }
+@keyframes bnin { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #boot { transition-duration: .25s; } #boot .bn { animation: none; } }
+</style>
+<link rel="stylesheet" href="apps/palette.css">
+<link rel="stylesheet" href="apps/ui.css">
+<link rel="stylesheet" href="apps/app.css">
+<link rel="stylesheet" href="apps/parts.css">
+<link rel="stylesheet" href="css/apps.css">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/shell.css">
+<link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/room3d.css">
+<link rel="stylesheet" href="css/laptop.css">
+<!-- three.js 0.184.0 (MIT), copied into vendor/three/: only the live room (js/room3d/) imports it, and only when it will run -->
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<div id="boot" role="status" aria-label="Loading"><div class="bn">Arjun Sharma</div><div class="bl"><i></i></div></div>
+<script>
+// The loader's line fills with real progress (the room's requests finishing, counted from the resource timings) and
+// otherwise eases toward 90 %; it completes when js/room.js calls __boot.done(): 'live' once the live room has drawn its
+// first frame, 'still' when this visit is shown the picture (no WebGL 2, reduced motion, saving data). If the room has
+// not come up after 15 s the loader gives way to the still and the room swaps in later, as it always has.
+(function () {
+  var boot = document.getElementById('boot'), bar = boot.querySelector('i'), t0 = performance.now(), shown = 0, real = 0, EXPECT = 20, over = false, raf = 0, iv = 0, calm = false
+  try { calm = matchMedia('(prefers-reduced-motion: reduce)').matches || localStorage.getItem('pc-calm') === '1' } catch (e) {}
+  if (calm) boot.className = 'calm'
+  function set(v) { bar.style.transform = 'scaleX(' + v.toFixed(4) + ')' }
+  function want() { return Math.min(0.9, Math.max(0.9 * (1 - Math.exp(-(performance.now() - t0) / 5000)), 0.9 * real / EXPECT)) }
+  try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.name.indexOf('/room3d/') > -1) real++ }) }).observe({ type: 'resource', buffered: true }) } catch (e) {}
+  function tick() { shown += (want() - shown) * 0.06; set(shown); raf = requestAnimationFrame(tick) }
+  if (calm) iv = setInterval(function () { shown = Math.max(shown, want()); set(shown) }, 400); else raf = requestAnimationFrame(tick)
+  function done() {
+    if (over) return
+    over = true; cancelAnimationFrame(raf); clearInterval(iv); clearTimeout(cap)
+    if (!calm) bar.style.transition = 'transform .2s ease-out'
+    set(1)
+    setTimeout(function () { boot.classList.add('out') }, calm ? 0 : 200)
+    setTimeout(function () { boot.remove() }, 1100)
+  }
+  var cap = setTimeout(done, 15000)
+  window.__boot = { done: done }
+})()
+</script>
+<div id="app" class="site" data-place="room">
+  <section id="room" class="place" tabindex="-1" aria-label="The room">
+    <div class="frame"><div class="poster"></div><div class="poster"></div><video class="relight" muted playsinline preload="auto" hidden></video></div>
+    <div class="spots" aria-hidden="true"></div>
+    <div class="rtip" role="tooltip" hidden></div>
+  </section>
+  <section id="tunnel" class="place" hidden aria-label="On the way: tap to skip"></section>
+  <section id="desktop" class="place" tabindex="-1" hidden aria-label="Mini desktop"></section>
+  <section id="pages" class="place" tabindex="-1" hidden aria-label="Pages"></section>
+
+  <header class="hud">
+    <button type="button" class="hb back" hidden><span>Room</span></button>
+    <span class="hb title"><b>Arjun Sharma</b></span>
+    <a class="hb plain" href="plain.html"><span>Plain list</span></a>
+  </header>
+  <div class="wip-tag" hidden></div>
+  <div id="themes" class="picker" role="dialog" aria-label="Themes" hidden></div>
+  <div class="toast" role="status" aria-live="polite"></div>
+</div>
+<noscript><p style="position:fixed;inset:0;margin:auto;height:3em;text-align:center;color:#fff;font:16px system-ui">This portfolio needs JavaScript to run.</p></noscript>
+</body>
 </html>

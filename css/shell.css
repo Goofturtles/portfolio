@@ -1,0 +1,381 @@
+/* The site's shell, to Microsoft's measurements: type ramp, motion curves, elevation, the icons' boxes, Fluent buttons,
+   the taskbar (the room's and the mini desktop's), the search flyout, the window frame, tooltips, the theme flyout,
+   the room (its picture, its objects as buttons), the phone's bottom bar, and the colour tokens.
+   References: film/ref/ui/board/taskbar/, search/, window/, surfaces/ and MEASURES.md.
+   Loaded after site.css. film/ui's stylesheets (apps/*.css) are not edited; where the site differs it says so here.
+   Checked against learn.microsoft.com this round: title bar 32 px, icon 16 px at 16 px, title 16 px after it in
+   caption type, everything in the bar half-clear when the window is not in front (Windows app title bar); corners
+   8 px for windows and flyouts, 4 px for controls and tooltips, 0 when maximised (Geometry in Windows 11); a 1 px
+   stroke on every surface, window at elevation 128, flyout 32, tooltip 16 (Layering and elevation).
+   Given by the lead and Windows' own, not on those pages: taskbar 48 px, 40 px buttons, 24 px icons, 46 x 32 caption
+   buttons, the two window shadows (Windows 11 design kit values). */
+:root {
+  --ft: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --fd: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --fs: "Segoe UI Variable Small", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  /* the Windows type ramp: size / line height */
+  --t-caption: 400 12px/16px var(--fs); --t-body: 400 14px/20px var(--ft); --t-strong: 600 14px/20px var(--ft); --t-large: 400 18px/24px var(--ft);
+  --t-subtitle: 600 20px/28px var(--fd); --t-title: 600 28px/36px var(--fd); --t-title-l: 600 40px/52px var(--fd);
+  /* Fluent motion: decelerate for what arrives, accelerate for what leaves, standard for what moves across */
+  --f-in: cubic-bezier(.1, .9, .2, 1); --f-out: cubic-bezier(.7, 0, 1, .5); --f-std: cubic-bezier(.8, 0, .2, 1);
+  --ease: var(--f-in);
+  /* Fluent elevation */
+  --sh2: 0 0 2px rgba(0, 0, 0, .12), 0 1px 2px rgba(0, 0, 0, .14); --sh4: 0 0 2px rgba(0, 0, 0, .12), 0 2px 4px rgba(0, 0, 0, .14);
+  --sh8: 0 0 2px rgba(0, 0, 0, .12), 0 4px 8px rgba(0, 0, 0, .14); --sh16: 0 0 2px rgba(0, 0, 0, .12), 0 8px 16px rgba(0, 0, 0, .14);
+  --sh28: 0 0 8px rgba(0, 0, 0, .12), 0 14px 28px rgba(0, 0, 0, .14); --sh64: 0 0 8px rgba(0, 0, 0, .12), 0 32px 64px rgba(0, 0, 0, .14);
+}
+body { font: var(--t-body); }
+
+/* ---- icons: one family (js/icons.js). A picture fills the box it is given; nothing is tinted or outlined ---- */
+.pix { display: inline-grid; place-items: center; place-content: center; width: var(--z); height: var(--z); flex: none; }
+.fic { display: block; width: var(--z, 100%); height: var(--z, 100%); }
+.emo.fi { display: inline-grid; width: var(--z, 20px); height: var(--z, 20px); vertical-align: middle; filter: none; }
+/* the four outside services as a plain tile (window.BRAND): their own colour, their mark in white */
+.fbrand { display: grid; place-items: center; width: var(--z, 100%); height: var(--z, 100%); border-radius: 22%; box-sizing: border-box; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.fbrand svg { display: block; width: 62%; height: 62%; fill: #fff; }
+.fbrand b { font: 600 calc(var(--z) * .5)/1.25 var(--fd); letter-spacing: 0; color: #fff; }
+.b-github { background: #24292f; } .b-linkedin { background: #0a66c2; } .b-medium { background: #1a1a1a; } .b-youtube { background: #f00; }
+.ic svg { width: 100%; height: 100%; display: block; }
+
+/* ---- buttons that float over a place: the name plate, Plain list, Back, Skip, the sheets' tabs ---- */
+.hud { position: absolute; left: 0; right: 0; top: 0; z-index: 40; display: flex; align-items: center; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 12px 8px; pointer-events: none; }
+.hb { pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 4px; box-sizing: border-box; background: rgba(252, 252, 252, .84); -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .07), var(--sh4); font: var(--t-strong); color: #1b1b1b; text-decoration: none; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color .15s ease, box-shadow .15s ease, transform .15s var(--f-in); }
+.hb .ic { color: #424242; }
+button.hb:hover, a.hb:hover { background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .09), var(--sh8); }
+button.hb:active, a.hb:active { transform: scale(.97); background: rgba(246, 246, 246, .9); }
+.hud .title { cursor: default; min-width: 0; padding-left: 8px; }
+.hud .title b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.hud .plain { margin-left: auto; }
+.hb:focus-visible, .pk-list button:focus-visible, .pk-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .hb { min-height: 44px; padding: 0 14px; } }
+/* the phone's app bar (the mini desktop on a phone): solid, the buttons flat on it */
+.site:has(#desktop.phone:not([hidden])) .hud { padding-bottom: 6px; }
+.site:has(#desktop.phone:not([hidden])) .hb { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.site[data-ui="dark"]:has(#desktop.phone:not([hidden])) .hb { color: #fff; }
+.site[data-ui="dark"]:has(#desktop.phone:not([hidden])) .hb .ic { color: rgba(255, 255, 255, .8); }
+.site:has(#desktop.phone:not([hidden])) .hud .title .pix { display: none; }
+.site:has(#desktop.phone:not([hidden])) .hud .title { font: 600 16px/24px var(--fd); }
+/* a render that is not final says so, once, quietly */
+.wip-tag { position: absolute; left: 14px; bottom: calc(58px + env(safe-area-inset-bottom)); z-index: 35; font: 400 11px/16px var(--ft); letter-spacing: 0; color: rgba(255, 255, 255, .78); text-shadow: 0 1px 2px rgba(0, 0, 0, .55); pointer-events: none; }
+.toast { border-radius: 8px; background: rgba(44, 44, 44, .96); box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), var(--sh16); font: var(--t-body); transition: opacity .2s ease, transform .25s var(--f-in); }
+
+/* ---- Themes: a flyout ---- */
+.picker { position: absolute; left: 50%; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 45; width: min(600px, calc(100% - 24px)); box-sizing: border-box; padding: 8px 12px 12px; border-radius: 8px; background: rgba(249, 249, 249, .94);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); box-shadow: 0 0 0 1px rgba(0, 0, 0, .08), 0 8px 16px rgba(0, 0, 0, .14), 0 16px 32px rgba(0, 0, 0, .12); color: #1b1b1b; animation: picker .25s var(--f-in) both; }
+.site[data-place="desktop"] .picker { bottom: calc(60px + env(safe-area-inset-bottom)); }
+.site:has(.place.phone:not([hidden])) .picker { bottom: calc(68px + env(safe-area-inset-bottom)); }
+@keyframes picker { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.pk-h { display: flex; align-items: center; justify-content: space-between; padding-left: 4px; font: var(--t-strong); color: #1b1b1b; }
+.pk-x { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 4px; background: none; color: #424242; cursor: pointer; transition: background-color .15s ease; }
+.pk-x:hover { background: rgba(0, 0, 0, .05); }
+.pk-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.pk-list button { display: grid; gap: 8px; padding: 4px 4px 8px; border: 0; border-radius: 6px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .07); font: var(--t-caption); color: #1b1b1b; text-align: left; cursor: pointer;
+  animation: rise-in .3s var(--f-in) both; animation-delay: calc(var(--i) * 30ms); transition: box-shadow .15s ease, transform .15s var(--f-in); }
+.pk-list button:hover { box-shadow: 0 0 0 1px rgba(0, 0, 0, .14), var(--sh4); transform: translateY(-1px); }
+.pk-list button:active { transform: scale(.97); }
+.pk-list button[aria-pressed="true"] { box-shadow: 0 0 0 2px #005fb8; font-weight: 600; }
+.pk-list button span { padding: 0 4px; }
+.sw { display: block; width: auto; height: 56px; border-radius: 4px; background: #d9d9d9 50% 50% / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1); }      /* each swatch is its room's own picture (js/main.js showPicker) */
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+
+
+/* ---- Fluent buttons (WinUI): 32 px tall, 4 px corners, 14 px text. The standard one is neutral (surface fill, a
+        hairline, a darker bottom edge); the accent fill is for the one main action of a view; a hyperlink button has no
+        chrome. ---- */
+.wbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border: 0; border-radius: 4px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--line), inset 0 -1px 0 color-mix(in srgb, var(--ink) 16%, transparent);
+  font: var(--t-body); color: var(--ink); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color .15s ease, transform .15s var(--f-in); }
+.wbtn:hover { background: color-mix(in srgb, var(--ink) 4%, var(--card-solid)); }
+.wbtn:active { transform: scale(.98); }
+.wbtn.accent { background: var(--accent); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .22); color: var(--accent-ink); }
+.wbtn.accent:hover { background: var(--accent-hi); }
+.wlink { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; flex: none; padding: 0 8px; box-sizing: border-box; border: 0; border-radius: 4px; background: none; font: var(--t-body); color: var(--link); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color .15s ease; }
+.wlink:hover { background: var(--sub); }
+:is(.wbtn, .wlink):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .wbtn, .wlink { min-height: 44px; padding: 0 16px; } }
+
+/* ---- the room: the picture in its frame, its objects as the buttons, the tooltip ---- */
+/* The picture is never stretched past its real size (js/room.js layout()). Large enough, it covers the stage; too
+   small for that, it sits at its own size in a frame over a soft, blurred extension of itself. It follows the pointer
+   a little (--px, --py: -1 to 1), and on a touch screen it drifts. A change of theme is a 1.2 s dissolve of two
+   pictures that differ only in their light. */
+.site[data-place="room"] .hud { display: none; }               /* at rest the room is the picture and nothing else: the taskbar carries his name, Themes and the plain list */
+.poster { position: absolute; inset: 0; background: #141414; opacity: 0; transition: opacity 1.2s var(--f-std); contain: paint; }
+.poster.on { opacity: 1; } .poster.top { z-index: 1; }
+.cut .poster { transition: none; }
+.poster .ext { position: absolute; inset: -64px; background: #141414 center / cover no-repeat; filter: blur(40px) saturate(1.15) brightness(.78); translate: calc(var(--px, 0) * 12px) calc(var(--py, 0) * 8px); transition: translate .6s var(--f-in); }
+.poster .pic, #room .frame video { position: absolute; translate: calc(var(--px, 0) * -10px) calc(var(--py, 0) * -6px); transition: translate .6s var(--f-in); }
+.poster.framed .pic, #room .frame.framed video { overflow: hidden; border-radius: 8px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .18), 0 32px 64px rgba(0, 0, 0, .28), 0 2px 21px rgba(0, 0, 0, .22); }
+.poster .pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; animation: breathe 18s ease-in-out infinite alternate; }
+#room .frame video { z-index: 2; object-fit: cover; display: block; }
+#room .frame video.idle { z-index: 1; }
+.pg-steps .hb { width: 36px; padding: 0; border-radius: 4px; }
+@media (pointer: coarse) { .pg-steps .hb { width: 44px; } }
+#tunnel video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+@keyframes bob { 0%, 100% { translate: 0 -3px; } 50% { translate: 0 3px; } }
+@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.022) translate(.35%, -.25%); } }
+@media (hover: none) {
+  .poster .pic { animation: drift 26s ease-in-out infinite alternate; }
+  @keyframes drift { from { translate: -6px -3px; } to { translate: 6px 3px; } }
+}
+/* the objects: each is a button the size of its box in the picture, and moves with the picture */
+.spots { position: absolute; inset: 0; overflow: clip; isolation: isolate; pointer-events: none; translate: calc(var(--px, 0) * -10px) calc(var(--py, 0) * -6px); transition: translate .6s var(--f-in); }
+.spot { position: absolute; margin: 0; padding: 0; border: 0; outline: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#room.in .spot { pointer-events: auto; }
+/* The light on an object. Until the rendered hover passes exist it is the picture's own pixels made brighter, soft at
+   the edges: nothing is outlined, scaled or tinted. With a pass (i.pass), that picture is added over the plate. */
+.spot i { position: absolute; inset: -12%; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity .3s var(--f-in);
+  -webkit-backdrop-filter: brightness(1.1) saturate(1.04); backdrop-filter: brightness(1.1) saturate(1.04);
+  -webkit-mask: radial-gradient(closest-side, #000 40%, transparent 100%); mask: radial-gradient(closest-side, #000 40%, transparent 100%); }
+.spot i.pass { inset: auto; border-radius: 0; -webkit-backdrop-filter: none; backdrop-filter: none; -webkit-mask: none; mask: none; background: center / 100% 100% no-repeat; mix-blend-mode: screen; }
+.spot.lit i, .spot:hover i { opacity: 1; transition-duration: .2s; }
+/* its name, the way Windows shows one: a small tooltip standing still just above the object, the name over one
+   quieter line saying what a click does. Up in 180 ms with a 3 px rise; nothing follows the pointer. */
+.rtip { position: absolute; left: 0; top: 0; z-index: 42; display: block; padding: 6px 10px 7px; border-radius: 8px; background: rgba(250, 251, 255, .74);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7);      /* the same small glass as the desktop's tooltips (css/laptop.css) */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 0 0 .5px rgba(10, 16, 40, .2), 0 6px 16px rgba(10, 16, 40, .16); color: rgba(0, 0, 0, .9); white-space: nowrap; pointer-events: none; opacity: 0; translate: 0 3px; transition: opacity .18s ease, translate .26s var(--f-in); }
+.rtip.on { opacity: 1; translate: 0 0; }
+.rtip b { display: block; font: 600 13px/18px var(--ft); }
+.rtip i { display: block; font: 400 12px/16px var(--ft); font-style: normal; color: rgba(0, 0, 0, .6); }
+.site[data-ui="dark"] .rtip { background: rgba(36, 39, 52, .74); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 0 0 .5px rgba(0, 0, 0, .4), 0 6px 16px rgba(0, 0, 0, .28); color: #fff; }
+.site[data-ui="dark"] .rtip i { color: rgba(255, 255, 255, .72); }
+#room .taskbar { transition: opacity .25s ease, background-color .45s ease, color .45s ease; }
+#room:not(.in) .taskbar { opacity: 0; pointer-events: none; }
+/* The room shows no bar (Arjun: "this bar shouldnt be here on the real life section"): its objects are the way in, by
+   mouse and by touch (js/room3d/input.js; the still's .spot buttons without the live room). The bar stays in the page
+   for the keyboard and screen readers only: unseen and never in the pointer's way, and it shows itself while it holds
+   the keyboard's focus. */
+#room .taskbar:not(:focus-within) { opacity: 0; pointer-events: none; }
+
+/* ---- the taskbar: the mini desktop's, and the same one along the bottom of the room ----
+   Windows 11's (film/ref/ui/board/taskbar/, MEASURES.md section 7): 48 px, one flat neutral mica bar with a 1 px hairline
+   on top, a centred group of 40 px buttons holding 24 px icons, the tray at the right, the clock in two lines. The
+   places are APP icons, as pinned apps are on a real Windows 11 taskbar (film/ref/exact/user-16-laptop-desktop-emoji.webp and
+   Arjun's own bar): each its own hue and silhouette, flat (js/icons.js, media/icons/app/). A hover plate (4 px, white 7 % on
+   the dark bar), a lighter plate under the app in front, a short grey pill under every open app, wider and in the accent under
+   the one in front. The tray, the search box and the room button stay thin line icons in the text colour, as in Windows. */
+.wins { position: absolute; left: 0; right: 0; top: 0; bottom: 48px; isolation: isolate; }
+:is(#desktop, #room) .taskbar { position: absolute; left: 0; right: 0; bottom: 0; top: auto; z-index: 30; height: 48px; display: flex; align-items: center; padding: 0 12px; box-sizing: border-box; font: var(--t-caption); color: var(--tb-ink);
+  background: var(--tb-bg); -webkit-backdrop-filter: blur(30px) saturate(1.2); backdrop-filter: blur(30px) saturate(1.2); box-shadow: inset 0 1px 0 var(--tb-edge);
+  --tb-bg: rgba(243, 243, 243, .94); --tb-solid: #f3f3f3; --tb-edge: rgba(0, 0, 0, .08); --tb-ink: rgba(0, 0, 0, .9); --tb-ico: #242424; --tb-ink2: rgba(0, 0, 0, .61); --tb-hover: rgba(255, 255, 255, .7); --tb-on: rgba(255, 255, 255, .92); --tb-ring: rgba(0, 0, 0, .06); --tb-press: rgba(255, 255, 255, .45);
+  --tb-pill: rgba(0, 0, 0, .45); --tb-accent: #005fb8; --tb-box: rgba(255, 255, 255, .72); --tb-box-hover: rgba(255, 255, 255, .92); --tb-box-edge: rgba(0, 0, 0, .07); --tip-bg: #f9f9f9; --tip-ink: rgba(0, 0, 0, .9); --tip-edge: rgba(0, 0, 0, .08); }
+#desktop .taskbar { transition: background-color .45s ease, color .45s ease; }
+:is(#desktop, #room) .taskbar.dark { --tb-bg: rgba(32, 32, 32, .94); --tb-solid: #202020; --tb-edge: rgba(255, 255, 255, .09); --tb-ink: #fff; --tb-ico: rgba(255, 255, 255, .9); --tb-ink2: rgba(255, 255, 255, .78); --tb-hover: rgba(255, 255, 255, .07); --tb-on: rgba(255, 255, 255, .11); --tb-ring: rgba(255, 255, 255, .07); --tb-press: rgba(255, 255, 255, .04);
+  --tb-pill: rgba(255, 255, 255, .55); --tb-accent: #60cdff; --tb-box: rgba(255, 255, 255, .06); --tb-box-hover: rgba(255, 255, 255, .09); --tb-box-edge: rgba(255, 255, 255, .08); --tip-bg: #2c2c2c; --tip-ink: #fff; --tip-edge: rgba(255, 255, 255, .1); }
+.taskbar .tk { position: relative; flex: none; box-sizing: border-box; display: grid; place-items: center; color: var(--tb-ico); text-decoration: none; cursor: default; -webkit-tap-highlight-color: transparent; background: none; }
+.taskbar .tk .pix { transition: transform .2s var(--f-in); }
+.taskbar .tk.launch .pix { animation: tk-launch .5s var(--f-in); }
+@keyframes tk-launch { 0% { transform: translateY(2px) scale(.8); } 45% { transform: translateY(-2px) scale(1.08); } 100% { transform: none; } }
+.taskbar .tk:focus-visible { outline: 2px solid var(--tb-ink); outline-offset: -2px; }
+/* the shell's icon (js/icons.js ico()): a regular drawing and a filled one in the same box; the filled one, in the accent,
+   is for the open or current place and for a tray control that is on */
+.ico { display: inline-grid; }
+.ico svg { grid-area: 1 / 1; display: block; width: 100%; height: 100%; fill: currentColor; overflow: visible; }
+.ico .f { display: none; color: var(--tb-accent, var(--accent)); }
+:is(.tk, .mk):is(.on, [aria-current], [aria-pressed="true"]) > .ico .r, .site[data-picker] :is(.tk, .mk)[data-ico="themes"] > .ico .r { display: none; }
+:is(.tk, .mk):is(.on, [aria-current], [aria-pressed="true"]) > .ico .f, .site[data-picker] :is(.tk, .mk)[data-ico="themes"] > .ico .f { display: block; }
+/* desk: one icon-only button at the far left, one centred group, the tray on the right */
+.desk > .taskbar .tk { width: 40px; height: 40px; border-radius: 4px; box-shadow: inset 0 0 0 1px transparent; transition: background-color .15s ease, box-shadow .15s ease; }
+.desk > .taskbar .tk:is(:hover, .hot) { background: var(--tb-hover); box-shadow: inset 0 0 0 1px var(--tb-ring); }
+.desk > .taskbar .tk:active { background: var(--tb-press); }
+.desk > .taskbar .tk:active .pix { transform: scale(.84); }
+.desk > .taskbar .tiles { position: absolute; left: 50%; top: 0; height: 100%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; }
+/* the pill under an open place: 6 px grey, and 16 px in the accent under the one in front; 3 px tall, 3 px above the bar's lower edge, clear of the icon (its bottom is 12 px above the bar's) */
+.desk > .taskbar .tk::after { content: ''; position: absolute; left: 50%; bottom: -1px; width: 16px; height: 3px; margin-left: -8px; border-radius: 2px; background: var(--tb-pill); opacity: 0; transform: scaleX(.1); transition: transform .25s var(--f-in), opacity .15s ease, background-color .2s ease; }
+.desk > .taskbar .tk.on::after { opacity: 1; transform: scaleX(.375); }
+.desk > .taskbar .tk.on[aria-current]::after { transform: none; background: var(--tb-accent); }
+.desk > .taskbar .tk.on { background: none; }
+.desk > .taskbar .tk.on[aria-current] { background: var(--tb-on); box-shadow: inset 0 0 0 1px var(--tb-ring); }      /* the one in front also has a lighter plate behind its icon */
+.desk > .taskbar :is(.tb-room, .tk-tray, .tk-link, .tk-search)::after { display: none; }      /* never under the search box, the tray or a link that leaves the site */
+/* the search box, Windows' own (film/ref/ui/board/search/04, measured at 1x: 32 px tall, fully rounded, about 220
+   wide): a step lighter than the bar in the dark, white on the light bar, a hairline round it. A click opens the panel. */
+.desk > .taskbar { container: tb / inline-size; }
+.desk > .taskbar .tk-search { width: 216px; height: 32px; margin: 0 4px; padding: 0 12px; border-radius: 16px; display: flex; gap: 8px; justify-content: flex-start; background: var(--tb-box); box-shadow: inset 0 0 0 1px var(--tb-box-edge); font: var(--t-body); color: var(--tb-ink2); cursor: text; }
+.desk > .taskbar .tk-search:hover, .desk > .taskbar .tk-search[aria-expanded="true"] { background: var(--tb-box-hover); }
+.desk > .taskbar .tk-search .ico { color: var(--tb-ico); }
+.tk-q { flex: 1; min-width: 0; text-align: left; }
+.desk > .taskbar .tray { position: static; margin-left: auto; height: 100%; display: flex; align-items: center; gap: 2px; color: inherit; }
+.desk > .taskbar .tk-tray { width: 32px; height: 32px; }
+.desk > .taskbar .tk[aria-disabled="true"]:hover { background: none; box-shadow: inset 0 0 0 1px transparent; }      /* Reduce motion when the system asks for it: shown on, cannot be switched off here */
+.desk > .taskbar .clock { display: flex; flex-direction: column; align-items: flex-end; margin-left: 4px; padding: 0 4px 0 8px; font: 400 12px/16px var(--ft); font-variant-numeric: tabular-nums; color: var(--tb-ink); white-space: nowrap; }
+.desk > .taskbar .clock b { font-weight: 400; }
+/* tooltips: caption type on a 4 px card, after half a second */
+.taskbar .tk > .tip { display: block; position: absolute; left: 50%; top: auto; bottom: calc(100% + 12px); z-index: 60; padding: 5px 8px 7px; border-radius: 4px; background: var(--tip-bg); color: var(--tip-ink); font: var(--t-caption); letter-spacing: 0; white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--tip-edge), 0 4px 8px rgba(0, 0, 0, .14); opacity: 0; visibility: hidden; transform: translate(-50%, 4px); pointer-events: none; transition: opacity .15s ease, transform .15s var(--f-in), visibility 0s .15s; }
+.desk > .taskbar .tk:is(:hover, :focus-visible) > .tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: .5s; }
+.desk > .taskbar .tray .tip { left: auto; right: 0; transform: translate(0, 4px); }
+.desk > .taskbar .tray .tk:is(:hover, :focus-visible) > .tip { transform: none; }
+.desk > .taskbar .tb-room .tip { left: 0; transform: translate(0, 4px); }
+.desk > .taskbar .tb-room:is(:hover, :focus-visible) > .tip { transform: none; }
+.desk > .taskbar .tk-search[aria-expanded="true"] > .tip { opacity: 0; visibility: hidden; }
+/* by the bar's own width (the desktop on the laptop is narrower than the window): the centred group never reaches the
+   tray. Its 576 px fit with the room button and the tray from 924 px; under 960 the box is the magnifier alone, under
+   760 the clock goes. */
+@container tb (max-width: 959px) {
+  .desk > .taskbar .tk-search { width: 40px; margin: 0; padding: 0; justify-content: center; border-radius: 4px; background: none; box-shadow: inset 0 0 0 1px transparent; cursor: default; }
+  .desk > .taskbar .tk-q { display: none; }
+}
+@container tb (max-width: 759px) { .desk > .taskbar .clock { display: none; } }
+
+/* ---- Windows Search: the panel above the taskbar (film/ref/ui/board/search/). 8 px corners, acrylic, a 1 px stroke,
+        12 px above the bar; the field, the scopes, results on the left and the details of the chosen one on the
+        right; the chosen row has a soft plate and a short accent bar. It rises and settles, and slides down. ---- */
+.sf { position: absolute; left: 50%; bottom: 60px; z-index: 40; display: flex; flex-direction: column; width: min(780px, calc(100% - 24px)); height: min(580px, calc(100% - 84px)); box-sizing: border-box; overflow: hidden; border-radius: 8px;
+  background: rgba(243, 243, 243, .92); -webkit-backdrop-filter: blur(40px) saturate(1.5); backdrop-filter: blur(40px) saturate(1.5); box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 16px 32px rgba(0, 0, 0, .18), 0 2px 8px rgba(0, 0, 0, .1);
+  font: var(--t-body); color: var(--ink); transform: translateX(-50%); animation: sf-up .25s var(--f-in) both; }
+.sf.dark { background: rgba(36, 36, 36, .92); box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 16px 32px rgba(0, 0, 0, .36), 0 2px 8px rgba(0, 0, 0, .2); }
+.sf.closing { animation: sf-down .15s var(--f-out) forwards; }
+@keyframes sf-up { from { opacity: 0; transform: translate(-50%, 28px); } }
+@keyframes sf-down { to { opacity: 0; transform: translate(-50%, 28px); } }
+.sf-top { display: flex; align-items: center; gap: 12px; height: 40px; flex: none; margin: 16px 16px 0; padding: 0 16px; border-radius: 20px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--line); color: var(--soft); }
+.sf-top:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.sf-in { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: none; font: var(--t-body); color: var(--ink); }
+.sf-in::placeholder { color: var(--soft); }
+.sf-scopes { display: flex; gap: 8px; flex: none; padding: 12px 16px 4px; }
+.sf-scopes button { height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: var(--sub); font: var(--t-body); color: var(--ink); cursor: pointer; transition: background-color .15s ease; }
+.sf-scopes button:hover { background: var(--sub2); }
+.sf-scopes button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.sf-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 45% minmax(0, 1fr); gap: 4px; padding: 0 12px 12px 8px; }
+.sf-list { overflow-y: auto; padding: 0 4px 4px; scrollbar-width: thin; scrollbar-color: var(--thumb) transparent; }
+.sf-list h4 { margin: 12px 0 4px; padding: 0 8px; font: var(--t-strong); color: var(--ink); }
+.sf-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 6px 8px 6px 12px; box-sizing: border-box; border: 0; border-radius: 4px; background: none; color: inherit; text-align: left; cursor: pointer; transition: background-color .15s ease; }
+.sf-row:hover { background: var(--sub); }
+.sf-row[aria-selected="true"] { background: var(--sub2); }
+.sf-row[aria-selected="true"]::before { content: ''; position: absolute; left: 0; top: 50%; width: 3px; height: 16px; margin-top: -8px; border-radius: 2px; background: var(--accent); }
+.sf-row > span:last-child { min-width: 0; }
+.sf-row b { display: block; font: var(--t-body); font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sf-row i { display: block; font: var(--t-caption); font-style: normal; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sf-gl { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--ink); }      /* a result's icon: a line icon on no ground */
+.sf-none { margin: 32px 16px; font: var(--t-body); color: var(--soft); }
+.sf-pane { overflow-y: auto; padding: 24px; border-radius: 8px; background: color-mix(in srgb, var(--card-solid) 72%, transparent); box-shadow: inset 0 0 0 1px var(--line); scrollbar-width: thin; scrollbar-color: var(--thumb) transparent; }
+.sf-id { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.sf-id > :first-child { margin-bottom: 10px; }
+.sf-id .sf-gl { width: 40px; height: 40px; }
+.sf-id b { font: var(--t-subtitle); color: var(--ink); overflow-wrap: anywhere; }
+.sf-id i { font: var(--t-caption); font-style: normal; color: var(--soft); }
+.sf-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 16px 0 20px; }
+.sf-text p { margin: 0 0 8px; color: var(--ink); }
+.sf-pane h5 { margin: 16px 0 6px; font: var(--t-strong); color: var(--ink); }
+.sf-facts { margin: 0; padding-left: 18px; color: var(--soft); }
+.sf-links { display: flex; flex-wrap: wrap; gap: 0 16px; margin: 0; }
+.sf-links a { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: var(--link); text-decoration: none; }
+.sf-links a:hover { text-decoration: underline; }
+.sf :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sf-in:focus-visible { outline: 0; }
+
+/* ---- the mini desktop: windows ---- */
+.w { position: absolute; display: block; overflow: hidden; border-radius: 8px; outline: 0; background: var(--w-base); color: var(--w-ink); box-shadow: 0 0 0 1px var(--w-stroke), 0 16px 32px rgba(0, 0, 0, .19), 0 2px 10.67px rgba(0, 0, 0, .15); transition: box-shadow .2s ease;
+  --w-base: #f3f3f3; --w-mica: #f3f3f3; --w-layer: #f9f9f9; --w-ink: rgba(0, 0, 0, .9); --w-ink2: rgba(0, 0, 0, .61); --w-hover: rgba(0, 0, 0, .06); --w-press: rgba(0, 0, 0, .04); --w-stroke: rgba(117, 117, 117, .4); }
+.w.dark { --w-base: #202020; --w-mica: #202020; --w-layer: #272727; --w-ink: #fff; --w-ink2: rgba(255, 255, 255, .79); --w-hover: rgba(255, 255, 255, .08); --w-press: rgba(255, 255, 255, .05); }
+.w.front { box-shadow: 0 0 0 1px var(--w-stroke), 0 32px 64px rgba(0, 0, 0, .28), 0 2px 21px rgba(0, 0, 0, .22); }
+.w.max { border-radius: 0; box-shadow: none; }
+.wins.moving .w { transition: left .28s var(--f-in), top .28s var(--f-in), width .28s var(--f-in), height .28s var(--f-in), box-shadow .2s ease; }
+.wins .w.dragging { transition: none; }
+.w.opening { animation: w-open .32s var(--f-in) backwards; }
+.w.closing { animation: w-close .15s var(--f-out) forwards; pointer-events: none; }
+.w.minimising { animation: w-min .18s var(--f-out) forwards; pointer-events: none; }
+.w.restoring { animation: w-min .26s var(--f-in) reverse backwards; }
+#desktop.arriving .w { animation: w-open .32s var(--f-in) backwards; }
+@keyframes w-open { from { opacity: 0; transform: scale(.92); } }
+@keyframes w-close { to { opacity: 0; transform: scale(.94); } }
+@keyframes w-min { to { opacity: 0; transform: translate(var(--mx, 0), var(--my, 40vh)) scale(.1); } }
+/* the title bar: mica, 32 px; when the window is not in front everything in it is half-clear */
+.w > .tbar { position: absolute; left: 0; right: 0; top: 0; height: 32px; display: flex; align-items: center; gap: 16px; padding: 0 146px 0 16px; box-sizing: border-box; border: 0; background: var(--w-mica); touch-action: none; user-select: none; -webkit-user-select: none; }
+.w > .tbar > .pix { --z: 16px !important; }
+.w > .tbar > b { min-width: 0; font: var(--t-caption); letter-spacing: 0; color: var(--w-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.w .tbar > .pix, .w .tbar > b, .wbx { transition: opacity .2s ease; }
+.w:not(.front) > .tbar > .pix, .w:not(.front) > .tbar > b, .w:not(.front) .wbx svg { opacity: .5; }
+/* a window behind another of the same size is wholly covered by it: it keeps its stroke and drops its shadow, so shadows never pile up */
+.w.stacked { box-shadow: 0 0 0 1px var(--w-stroke); }
+.w .br-tabs { touch-action: none; user-select: none; -webkit-user-select: none; }
+.wbx { position: absolute; right: 0; top: 0; z-index: 5; display: flex; width: auto; height: 32px; }
+.wbx button { width: 46px; height: 100%; flex: none; display: grid; place-items: center; border: 0; padding: 0; border-radius: 0; background: transparent; color: var(--w-ink); cursor: default; transition: background-color .1s ease, color .1s ease; }
+.wbx svg { display: block; width: 10px; height: 10px; overflow: visible; }
+.wbx button:hover { background: var(--w-hover); }
+.wbx button:active { background: var(--w-press); }
+.wbx button[data-do="close"]:hover { background: #c42b1c; color: #fff; }
+.wbx button[data-do="close"]:active { background: rgba(196, 43, 28, .9); color: rgba(255, 255, 255, .7); }
+.wbx button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.w.tall .wbx { height: calc(48px * var(--k, 1)); }            /* the browser: the buttons are as tall as its tab strip */
+.w.tall .wbx button { width: calc(46px * max(1, var(--k, 1))); }
+.w.tall.tabbed .wbx { height: 38px; }                         /* the file explorer: its 38 px tab strip is the title bar */
+.w.tall.tabbed .wbx button { width: 46px; }
+.w.tabbed .wcont { background: var(--w-base); }
+.site .w .br-wb, .site .w .stage .tbar .wb { display: none; }      /* film/ui's drawn window buttons: the site's own stand over them */
+/* what is inside a window is a page: opaque. Mica is for the title bar and the taskbar, never for what is being read */
+.wcont { position: absolute; left: 0; right: 0; top: 32px; bottom: 0; overflow: hidden; background: var(--w-layer); }
+.w.tall .wcont { top: 0; }
+.w .stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--ft); color: var(--body); text-rendering: geometricPrecision; pointer-events: none; }
+.w .stage > .win { pointer-events: auto; }
+.site .w .win.glass { border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(180deg, #f4f3f8 0%, #f3f0f9 46%, #f1ecfa 100%); }      /* the film's glass over its lilac ground, as one opaque surface */
+.site .w .win.glass .tool { background: #edeaf3; }
+.site .w .br-win { border-radius: 0; box-shadow: none; }
+.wbody { height: 100%; box-sizing: border-box; overflow-y: auto; padding: 32px max(32px, calc(50% - 380px)) 40px; scrollbar-width: thin; scrollbar-color: var(--thumb) transparent; }
+.wfill { height: 100%; }
+
+/* ---- his content as sections: on the type ramp ---- */
+.sec { font: var(--t-body); font-size: 15px; line-height: 22px; }
+.sec h2 { margin: 32px 0 12px; font: var(--t-title); letter-spacing: 0; }
+.sec h3 { margin: 0 0 2px; font: 600 16px/22px var(--fd); }
+.sec .lead { font: var(--t-large); font-weight: 400; }
+.card, .steps li, .rows li, .film { border-radius: 8px; box-shadow: 0 0 0 1px var(--line), var(--sh2); }
+.sec .btn { min-height: 32px; padding: 0 12px; border-radius: 4px; font: var(--t-strong); background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--line), inset 0 -1px 0 color-mix(in srgb, var(--ink) 14%, transparent); color: var(--ink); transition: background-color .15s ease, transform .15s var(--f-in); }
+.sec .btn:hover { background: color-mix(in srgb, var(--ink) 4%, var(--card-solid)); }
+.sec .btn:active { transform: scale(.97); }
+@media (pointer: coarse) { .sec .btn { min-height: 44px; padding: 0 16px; } .sec dl.about dd a { display: inline-block; padding: 6px 0; } }
+.sec .tags span, .mo .tags span, .sec dl.about .tg { border-radius: 4px; }
+.sec dl.about .tg { animation-name: bob-s; }                  /* his interests, values and tools still float, but hardly: a row of them stays a row */
+@keyframes bob-s { 0%, 100% { translate: 0 -1px; } 50% { translate: 0 1px; } }
+.cards .card, .rows li, .steps li, .films li { animation: rise-in .35s var(--f-in) both; }
+:is(.cards, .rows, .steps, .films) > :nth-child(2) { animation-delay: 40ms; } :is(.cards, .rows, .steps, .films) > :nth-child(3) { animation-delay: 80ms; } :is(.cards, .rows, .steps, .films) > :nth-child(4) { animation-delay: 120ms; }
+:is(.cards, .rows, .steps, .films) > :nth-child(5) { animation-delay: 160ms; } :is(.cards, .rows, .steps, .films) > :nth-child(n + 6) { animation-delay: 200ms; }
+
+
+/* ---- a phone: the taskbar is a bottom bar of five slots with their names; the fifth is More, and everything else
+        is in the sheet it opens (film/SPEC.md "It must run on a phone": every icon also shows its name) ---- */
+.phone > .taskbar { height: calc(56px + env(safe-area-inset-bottom)); padding: 0 4px env(safe-area-inset-bottom); align-items: stretch; }
+.phone > .taskbar .tk { flex: 1 1 0; min-width: 0; grid-template-rows: 24px 16px; align-content: center; justify-items: center; gap: 4px; border-radius: 4px; }
+.phone > .taskbar .tk .pix { --z: 24px !important; }
+.phone > .taskbar .tip { position: static; display: block; max-width: 100%; padding: 0; border-radius: 0; background: none; box-shadow: none; opacity: 1; visibility: visible; transform: none; font: 400 11px/16px var(--ft); color: var(--tb-ink2); overflow: hidden; text-overflow: ellipsis; transition: color .15s ease; }      /* the name under the line icon: 11 px Regular, as in the Teams bar */
+.phone > .taskbar .tk:active .pix { transform: scale(.86); }
+.phone > .taskbar .tk[aria-current] .tip, .phone > .taskbar .tk[aria-expanded="true"] .tip { color: var(--tb-ink); }
+.phone > .taskbar .tk[aria-current]::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 16px; height: 3px; margin-left: -8px; border-radius: 2px; background: var(--tb-accent); animation: tb-pill .3s var(--f-in) both; }
+@keyframes tb-pill { from { transform: scaleX(.2); opacity: 0; } }
+.m-body { bottom: calc(56px + env(safe-area-inset-bottom)); }
+.more-sheet { position: absolute; left: 0; right: 0; top: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 29; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .3); animation: fade .2s ease both; }
+.ms-card { width: 100%; max-height: calc(100% - 64px);       /* on a short phone the sheet scrolls inside itself and never runs up under the name plate */ overflow-y: auto; box-sizing: border-box; padding: 4px 8px 12px; border-radius: 8px 8px 0 0; background: var(--page); box-shadow: 0 0 0 1px var(--line), 0 -8px 32px rgba(0, 0, 0, .2); animation: ms-up .3s var(--f-in) both; }
+@keyframes ms-up { from { transform: translateY(32%); opacity: 0; } }
+.ms-g { display: grid; margin-top: 8px; overflow: hidden; border-radius: 8px; background: var(--card-solid); box-shadow: inset 0 0 0 1px var(--line); }
+.mk { display: flex; align-items: center; gap: 16px; min-height: 48px; padding: 0 16px; font: var(--t-body); color: var(--ink); text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.mk + .mk { box-shadow: inset 0 1px 0 var(--line); }
+.mk:active { background: var(--sub); }
+.mk > span:nth-child(2) { flex: 1; min-width: 0; }
+.mk > em { font-style: normal; color: var(--soft); }
+.mk > .ic { color: var(--soft); }
+.mk > .ico { color: var(--ink); }
+.mk:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.m-launch button { border-radius: 8px; box-shadow: 0 0 0 1px var(--line), var(--sh2); animation: rise-in .35s var(--f-in) both; animation-delay: calc(var(--i) * 40ms + 100ms); }
+.m-launch b { font: 600 16px/22px var(--fd); }
+.m-launch em { font: var(--t-caption); font-size: 13px; line-height: 18px; }
+.m-launch .ic { color: var(--faint); }
+.m-heroT h1 { font: var(--t-title); }
+.m-heroT p { font: var(--t-body); font-size: 15px; }
+.m-hero { border-radius: 0 0 8px 8px; }
+.mo { border-radius: 8px; }
+.mo-h .ic { color: var(--hi); align-self: center; }
+.mp button .ic { color: var(--faint); }
+.mb-bar { border-radius: 22px; }
+
+/* ---- colour: Windows 11's neutral surface steps and its default blue on everything the site draws. The film's
+        purple and its lilac strokes stay only inside the film's own document (the Portfolio window) and its sheets. ---- */
+.site { --accent: #005fb8; --accent-hi: #1a6fc0; --accent-lo: #005a9e; --accent-ink: #fff; --hi: #005fb8; --link: #005fb8; }
+.site .dark { --accent: #60cdff; --accent-hi: #5ab9e6; --accent-lo: #60cdff; --accent-ink: #000; --hi: #60cdff; --link: #60cdff; }
+.site #pages .sheet { --accent: #7550f0; --accent-hi: #8c63fb; --accent-lo: #5a3bd0; --accent-ink: #fff; --hi: #5a3bd0; --link: #2f6fd6; }
+.w.flow, #desktop.phone, .sf, .more-sheet { --ink: #1b1b1b; --body: #1b1b1b; --soft: #5d5d5d; --faint: #8a8a8a; --line: rgba(0, 0, 0, .08); --card-solid: #fff; --card: #fff; --chip: #f9f9f9; --thumb: #c4c4c4; --page: #f3f3f3; --panel: #f9f9f9; --sub: rgba(0, 0, 0, .04); --sub2: rgba(0, 0, 0, .07); }
+.w.flow.dark, #desktop.phone.dark, .sf.dark, .more-sheet.dark { --ink: #fff; --body: #fff; --soft: #c5c5c5; --faint: #8f8f8f; --line: rgba(255, 255, 255, .08); --card-solid: #2c2c2c; --card: #2c2c2c; --chip: #272727; --thumb: #5e5e5e; --page: #202020; --panel: #272727; --sub: rgba(255, 255, 255, .06); --sub2: rgba(255, 255, 255, .09); }
+
+@media (prefers-reduced-motion: reduce) {
+  .poster .pic, .poster .ext, .spots { translate: none; }
+}
+html.calm :is(.poster .pic, .poster .ext, .spots) { translate: none; }

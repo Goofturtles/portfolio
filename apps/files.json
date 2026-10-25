@@ -1,0 +1,94 @@
+{
+ "_about": "Written by site/tools/sync_ui.py. The files below are copies of film/ui/, unchanged. Do not edit them here.",
+ "synced": "2026-10-24T20:33:17",
+ "styles": [
+  "palette.css",
+  "ui.css",
+  "app.css",
+  "parts.css",
+  "browser.css"
+ ],
+ "scripts": [
+  "gen/data.js",
+  "gen/engine.js",
+  "lookup.js",
+  "kit.js",
+  "doc.js",
+  "view_window.js",
+  "view_app.js",
+  "view_ai.js",
+  "view_browser.js",
+  "view_parts.js"
+ ],
+ "browser": true,
+ "pictures": {
+  "img/before-i-tell.jpg": [
+   2200,
+   1512
+  ],
+  "img/folio.jpg": [
+   2200,
+   1515
+  ],
+  "img/ghostbus.jpg": [
+   2109,
+   1450
+  ],
+  "img/lifetime-fire.jpg": [
+   2200,
+   1512
+  ],
+  "img/owed.jpg": [
+   2200,
+   1512
+  ],
+  "img/second-reader.jpg": [
+   2400,
+   1650
+  ],
+  "img/shade-route-dusk.jpg": [
+   2200,
+   1512
+  ],
+  "img/shade-route.jpg": [
+   2091,
+   1387
+  ],
+  "img/visual-aeris.jpg": [
+   750,
+   250
+  ],
+  "img/visual-battery-framework.jpg": [
+   2200,
+   1512
+  ],
+  "img/visual-before-i-tell.jpg": [
+   2200,
+   1512
+  ],
+  "img/visual-folio.jpg": [
+   2200,
+   1515
+  ],
+  "img/visual-ghostbus.jpg": [
+   2109,
+   1450
+  ],
+  "img/visual-mem.jpg": [
+   1760,
+   1210
+  ],
+  "img/visual-owed.jpg": [
+   2200,
+   1512
+  ],
+  "img/visual-second-reader.jpg": [
+   2400,
+   1650
+  ],
+  "img/visual-shade-route.jpg": [
+   2200,
+   1512
+  ]
+ }
+}

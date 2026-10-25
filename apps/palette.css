@@ -1,0 +1,78 @@
+/* Every colour the UI uses, in one place. Pass 1 keeps the reference's own colours (sampled from loop.mp4
+   frame 692 unless noted) so the remake can be checked side by side. Pass 2 recolours here and nowhere else. */
+:root {
+  /* brand accent: the "Live" pill, selection, links */
+  --accent: #7550f0;            /* pill body, sampled #8b56f7 through the film's glow */
+  --accent-hi: #8c63fb;
+  --accent-lo: #5a3bd0;
+  --accent-ink: #ffffff;
+
+  /* the glass window */
+  --glass-top: rgba(236, 235, 239, .93);
+  --glass-mid: rgba(238, 236, 243, .80);
+  --glass-low: rgba(240, 232, 250, .42);
+  --glass-edge: rgba(255, 255, 255, .75);
+  --bar: rgba(232, 226, 236, .55);          /* title bar tint */
+  --tool: rgba(228, 233, 238, .62);         /* toolbar tint */
+  --line: rgba(160, 150, 185, .28);
+
+  /* ink */
+  --ink: #1d1b22;               /* headings */
+  --body: #24222a;              /* paragraphs */
+  --soft: #666470;              /* chip text, labels */
+  --faint: #8b8994;
+  --link: #2f6fd6;
+
+  /* surfaces inside the document */
+  --card: rgba(255, 255, 255, .72);
+  --card-solid: #ffffff;
+  --chip: rgba(255, 255, 255, .58);
+  --chip-edge: rgba(255, 255, 255, .9);
+  --track: rgba(255, 255, 255, .7);
+  --thumb: #c9c8cd;
+  --good: #2faa5c;
+
+  /* name cursors: arrow, label fill, label text */
+  --c1: #45cfbd; --c1-bg: #c0ebe4; --c1-ink: #3cc4b1;      /* teal   "Arjun"   (reference: Adi)    */
+  --c2: #1185d8; --c2-bg: #8fc2f5; --c2-ink: #4d92de;      /* blue   "You"     (reference: Jesse)  */
+  --c3: #af4df7; --c3-bg: #d79af2; --c3-ink: #b860ee;      /* purple "Judge"   (reference: Serena) */
+  --c4: #f6b23c; --c4-bg: #fbe3a3; --c4-ink: #f0b03a;      /* orange "Visitor" (reference: Elvia)  */
+  --c5: #567aef;                                           /* blue ring bubble  */
+  --c6: #f29ad9;                                           /* pink ring bubble  */
+
+  /* avatar rings in the toolbar, left to right when all six are in */
+  --r1: #d7c545; --r2: #d64541; --r3: #8f3fd1; --r4: #3b3b3f; --r5: #4f7d3a; --r6: #3a44d8;
+  /* avatar fills: mid tones, the brightness of the faces they stand in for */
+  --a1: #9a7b64; --a2: #6f5a4e; --a3: #b98f6c; --a4: #7d6a8c; --a5: #5b6f86; --a6: #a36a5a;
+
+  /* the five steps of "How I work": his own accents (ProcessRow.jsx) */
+  --s1: #8fa2ff; --s2: #0d99ff; --s3: #78c0cc; --s4: #5fbf7f; --s5: #ff5a4e;
+
+  /* the outside services' own colours (Simple Icons' brand hex; LinkedIn's blue for its lettered tile). These are
+     theirs: pass 2 does not recolour them. */
+  --gh: #181717; --md: #000000; --yt: #ff0000; --li: #0a66c2;
+  --rim: rgba(40, 30, 80, .36);             /* hairline round an icon's picture */
+  --rim-pale: rgba(40, 30, 80, .78);        /* firmer round a near-white picture (the envelope on the light taskbar) */
+  --rim-dim: var(--rim);
+
+  /* stand-in backdrop, only for looking at the page on its own (?bg=1) */
+  --bg-a: #e4d6ee; --bg-b: #cdb4f4; --bg-c: #b6c4f2;
+}
+
+/* dark app: P2 blue-and-pink state and P5 (sampled from frames 404 and 1190) */
+.dark {
+  --glass-top: #1f1f21; --glass-mid: #1f1f21; --glass-low: #1f1f21; --glass-edge: rgba(255, 255, 255, .08);
+  --bar: #1b1b1d; --tool: #1f1f21; --line: rgba(255, 255, 255, .09);
+  --ink: #f3f2f5; --body: #e4e3e8; --soft: #b9b8c0; --faint: #84838c; --link: #8fa8ff;
+  --card: #2a2a2d; --card-solid: #2a2a2d; --chip: #303034; --chip-edge: rgba(255, 255, 255, .08);
+  --track: rgba(255, 255, 255, .06); --thumb: #55545a;
+  --side: #252528; --side-sel: #343438;
+  --desk-a: #0b1026; --desk-b: #1a3fd0; --desk-c: #0a0f22; --task: rgba(28, 30, 40, .82);
+  --rim: rgba(255, 255, 255, .46);
+  --rim-pale: var(--rim);
+  --rim-dim: rgba(255, 255, 255, .85);      /* firmer round a dark picture (the purple silhouette on the dark taskbar) */
+}
+.light {
+  --side: #f1f1f4; --side-sel: #ffffff;
+  --desk-a: #cfe0f4; --desk-b: #4a8df0; --desk-c: #dfeaf6; --task: rgba(238, 242, 248, .86);
+}

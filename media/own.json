@@ -1,0 +1,99 @@
+{
+ "_about": "Written by site/tools/sync_own.py from portfolio-v2 (public/process/ and ProcessRow.jsx). Do not edit here.",
+ "synced": "2026-10-24T20:33:17",
+ "pictures": {
+  "sketch-shade": {
+   "src": "media/own/sketch-shade.jpg",
+   "w": 744,
+   "h": 1240,
+   "step": 1,
+   "project": "Shade Route",
+   "caption": "Shade Route — Plan"
+  },
+  "sketch-folio": {
+   "src": "media/own/sketch-folio.jpg",
+   "w": 1120,
+   "h": 700,
+   "step": 1,
+   "project": "Folio",
+   "caption": "Folio — Dashboard"
+  },
+  "sketch-ghostbus": {
+   "src": "media/own/sketch-ghostbus.jpg",
+   "w": 1200,
+   "h": 750,
+   "step": 1,
+   "project": "GhostBus",
+   "caption": "GhostBus — Nearby"
+  },
+  "build-map-dark": {
+   "src": "media/own/build-map-dark.jpg",
+   "w": 1348,
+   "h": 910,
+   "step": 2,
+   "project": "Shade Route",
+   "caption": "Shade Route"
+  },
+  "phone-dark": {
+   "src": "media/own/phone-dark.jpg",
+   "w": 716,
+   "h": 1476,
+   "step": 3,
+   "project": "Shade Route",
+   "caption": "Shade Route running on a phone: turn-by-turn directions, each stretch with how much of it is shaded"
+  },
+  "phone2-dark": {
+   "src": "media/own/phone2-dark.jpg",
+   "w": 716,
+   "h": 1476,
+   "step": 3,
+   "project": "Shade Route",
+   "caption": "Shade Route's route planner on a second phone: start, destination and shade preferences"
+  },
+  "present-shade-dark": {
+   "src": "media/own/present-shade-dark.jpg",
+   "w": 1920,
+   "h": 1080,
+   "step": 4,
+   "project": "Shade Route",
+   "caption": "Presenter view: Shade Route on the current slide, showing 85% of a walk in shade"
+  },
+  "present-folio-dark": {
+   "src": "media/own/present-folio-dark.jpg",
+   "w": 1280,
+   "h": 720,
+   "step": 4,
+   "project": "Folio",
+   "caption": "Folio"
+  },
+  "thumb-shade-dark": {
+   "src": "media/own/thumb-shade-dark.jpg",
+   "w": 640,
+   "h": 360,
+   "step": 4,
+   "project": "Shade Route",
+   "caption": "Shade Route"
+  },
+  "thumb-folio-dark": {
+   "src": "media/own/thumb-folio-dark.jpg",
+   "w": 640,
+   "h": 360,
+   "step": 4,
+   "project": "Folio",
+   "caption": "Folio"
+  },
+  "thumb-ghostbus": {
+   "src": "media/own/thumb-ghostbus.jpg",
+   "w": 640,
+   "h": 360,
+   "step": 4,
+   "project": "GhostBus",
+   "caption": "GhostBus"
+  }
+ },
+ "code": {
+  "file": "shade-route / app / shade.py",
+  "about": "Real Python from Arjun's Shade Route backend: the function that adds a shade cost to every street.",
+  "text": "def annotate_graph(graph, field_obj: ShadeField, shade_aversion: float) -> str:\n    \"\"\"Write a `shade_cost` onto every edge, and return the weight attribute name.\n\n    edge_cost = length x (1 + shade_aversion x (1 - shade_fraction))\n\n    At shade_aversion 0 this collapses to plain length, so the \"shortest\" and\n    \"shadiest\" routes come out of the same router with the same code path. That\n    is what makes the comparison in the UI honest rather than two different\n    algorithms dressed up as a trade-off.\n    \"\"\"\n    fractions = edge_shade_fractions(graph, field_obj)\n    for u, v, k, data in graph.edges(keys=True, data=True):\n        pair = fractions.get((u, v, k), (0.0, 0.0))\n        fraction, modelled = pair if isinstance(pair, tuple) else (pair, 0.0)\n        data[\"shade_fraction\"] = fraction\n        data[\"modelled_shade_fraction\"] = modelled\n        data[\"shade_cost\"] = data[\"length\"] * (1.0 + shade_aversion * (1.0 - fraction))\n    return \"shade_cost\""
+ }
+}
