@@ -68,7 +68,7 @@ export function typeOut(pre, text, cps = 110, hold = 4000) {
   let n = 0, rest = 0
   const t = setInterval(() => {
     if (!pre.isConnected) return clearInterval(t)
-    if (!pre.offsetParent) return
+    if (pre.closest('.dormant') || !pre.offsetParent) return      // the desktop is resting unseen in the room: no writes, so no style or layout work
     if (rest > 0) { rest -= 50; if (rest <= 0) n = 0; return }
     n = Math.min(text.length, n + Math.ceil(cps / 20))
     pre.textContent = text.slice(0, n)

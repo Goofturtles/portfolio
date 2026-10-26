@@ -7,7 +7,8 @@
    clipping the whole desktop to a rounded rectangle: under the camera's perspective that clip is a mask the browser
    rastered again at every step of the flight in (measured: over 300 tile rasters a flight at the supersampled size) */
 #desktop.onlap > .taskbar { border-radius: 0 0 var(--glass-r) var(--glass-r); }
-#desktop.onlap .w.max { border-radius: var(--glass-r) var(--glass-r) 0 0; }
+#desktop.onlap .w.max { border-radius: var(--glass-r) var(--glass-r) 0 0;
+  clip-path: inset(0 round var(--glass-r) var(--glass-r) 0 0); }      /* Every window is its own layer (will-change, below), drawn under the camera's per-frame perspective; the browser's rounded overflow clip on such a layer drops out and comes back from frame to frame (measured: the tab strip's square corner showing, then not, in the top two corners). A clip-path is a mask painted once, and holds */
 /* Fading in and out: each layer on the glass fades by itself. It arrives early in the flight, while the screen is still
    small on the page. */
 #desktop.onlap.leaving { opacity: 1; }
@@ -16,6 +17,7 @@
    first frame it is shown would then pay for all of it (measured: a 300 ms stall in the middle of the flight). At 1%
    on the laptop's small screen in the room it cannot be seen, and it stays painted and drawn. */
 #desktop.dormant { pointer-events: none; }
+#desktop.dormant *, #desktop.dormant ::before, #desktop.dormant ::after { animation-play-state: paused !important; }      /* what is moving in it waits where it is: no frames of its own in the room, and it goes on from there when the camera is back */
 #desktop.dormant > * { opacity: .01 !important; animation: none !important; transition: none !important; }
 #desktop.onlap.arriving { animation: none; }      /* never the whole desktop (css/site.css fades a place in as a whole) */
 #desktop.onlap.arriving > * { animation: wake .5s var(--m-std) .1s both; }

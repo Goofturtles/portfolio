@@ -17,7 +17,7 @@ import { el, reduced, CONFIG } from './config.js'
 export const FILL = 0.82                     // the glass's share of the window's height at rest (90% of its width at most)
 const MIN_H = 760                            // below this the desktop is drawn larger than it shows, never cramped
 const phone = matchMedia(CONFIG.phone)
-let r3d = null, node = null, ov = null, M = null, I = null, size = [0, 0], lost = () => {}, ready = () => {}
+let r3d = null, node = null, ov = null, M = null, I = null, size = [0, 0], parked = false, lost = () => {}, ready = () => {}
 const pointer = [0, 0], rims = [], dims = [], boxes = [], radius = new WeakMap()
 addEventListener('pointermove', (e) => { pointer[0] = e.clientX / innerWidth * 2 - 1; pointer[1] = e.clientY / innerHeight * 2 - 1 }, { passive: true })
 
@@ -61,8 +61,12 @@ export function glue(root) {
   measure()
   ov = root.querySelector(':scope > .gl') || root.appendChild(el('div', 'gl', '<i class="sh"></i><i class="lp"></i><i class="dm"></i>'))
   ov.setAttribute('aria-hidden', 'true')
+  parked = false
   r3d.onGlass(frame)
 }
+// The desktop is resting unseen in the room (js/desktop.js doze): nothing is read off the page or written to it a frame
+// until glue() puts it back on the glass on the way in, and the screen's shader draws none of its panels.
+export function park() { if (r3d && node) { r3d.onGlass(null); r3d.panels([], 1, 1); parked = true } }
 export function unglue() {
   if (r3d) { r3d.onGlass(null); r3d.panels([], 1, 1) }
   if (node) { node.style.cssText = ''; node = null }
@@ -78,10 +82,10 @@ export function prime(root) {
   measure()
   const app = document.getElementById('app')
   node.style.transform = `translate(${Math.round((app.clientWidth - size[0] * ss) / 2 / ss)}px, ${Math.round((app.clientHeight - size[1] * ss) / 2 / ss)}px)`      // lengths in a zoomed box are its own pixels
-  requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (node === root) glue(root) })))
+  requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (node === root) { glue(root); if (root.classList.contains('dormant')) park() } })))      // on the glass once (its matrix set), then left alone while it rests
 }
 // the window changed size (js/desktop.js calls this before it lays its windows out again)
-export function remeasure() { if (node && r3d) measure() }
+export function remeasure() { if (!node || !r3d) return; measure(); if (parked) { r3d.onGlass(frame); park() } }      // resting: measure() wiped its matrix, so it goes back on the glass once
 
 // G: the glass's corners on the page (top-left, top-right, bottom-right, bottom-left), how square on the eye is,
 // the lamp's reflection (across, down, shown) and the eye's offset from the glass's middle (across, down), all from

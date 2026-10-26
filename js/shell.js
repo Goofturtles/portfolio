@@ -67,7 +67,7 @@ export function taskbar(parent, ui, phone, opts) {
 
   // two lines, no seconds, as the visitor's own machine writes them
   const [time, day] = bar.querySelectorAll('.clock b')
-  const tick = () => { if (!time) return; const d = new Date(); time.textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); day.textContent = d.toLocaleDateString() }
+  const tick = () => { if (!time) return; const d = new Date(), t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); if (time.textContent !== t) { time.textContent = t; day.textContent = d.toLocaleDateString() } }      // written only when the minute has changed: a write is a style and layout pass
   tick()
   const ticking = setInterval(tick, 5000)
 

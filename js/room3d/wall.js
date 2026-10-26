@@ -138,11 +138,18 @@ void main() {
     return;
   }
   if (vPart > .5) E += led * (.1 + .05 * clamp(vL.y / uOpen.y, -1., 1.));       // the picture lifted a little by its spill, more at the top
+  float pool = 0.;
   if (uInner > 0. && vPart > .5 && vPart < 3.5) {                     // the résumé's frame alone: lit from within, as a lightbox
     vec4 dd = max(vec4(uOpen.y - vL.y, vL.y + uOpen.y, vL.x + uOpen.x, uOpen.x - vL.x), 0.);
     float edge = min(dot(vec4(1.2, .75, 1., 1.), exp(-dd / .013)), 1.4);      // a hidden strip under the lip: strongest along it, most from the top
     E += led * uInner * (.16 + .42 * edge) * (vPart > 2.5 ? .6 : 1.);           // the mat a touch brighter, the photo a little lifted
     k = mix(k, 1., .65 * uInner);                                     // and the lip's own shade mostly filled by it
+  }
+  if (vPart > 2.5 && vPart < 3.5) {                                   // every picture (the results print, the portrait, the still): a picture light pooled on its middle, wide enough that no corner stays murky, so it reads in its own colours
+    bool framed = uWin.x > 0.;
+    vec2 r = (vL.xy - vec2(0., framed ? uWin.z : 0.)) / (framed ? uWin.xy : uOpen);      // 1 at the picture's edge, from its middle
+    pool = .95 * exp(-.4 * dot(r, r));
+    E = mix(E, max(E, vec3(1.6, 1.57, 1.52)), pool);
   }
   vec3 c = srgb(a * E * k);
   if (sheen > 0.) {                                                    // satin paint: a soft sheen of the room on its edges
@@ -150,7 +157,7 @@ void main() {
     c += env(reflect(-V, N), 4.) * f * sheen * min(1., lum(W) * 1.6);
   }
   c *= 1. + .08 * uHover;
-  float top = lum(srgb(lin(W) + uPlaster * led * 1.15));               // never brighter than the wall round it, with its light on it
+  float top = mix(lum(srgb(lin(W) + uPlaster * led * 1.15)), 1., pool); // never brighter than the wall round it, with its light on it (bar the picture lights)
   if (lum(c) > top) c *= top / lum(c);
   frag = vec4(c * (1. - uBloomPass), far());
 }`

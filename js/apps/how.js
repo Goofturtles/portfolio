@@ -31,6 +31,6 @@ export function liven(root, own) {
   for (const c of root.querySelectorAll('.hw-present .time:not([data-on])')) {
     c.dataset.on = 1
     let s = 0
-    const t = setInterval(() => { if (!c.isConnected) return clearInterval(t); if (!c.offsetParent) return; s++; c.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') }, 1000)
+    const t = setInterval(() => { if (!c.isConnected) return clearInterval(t); if (c.closest('.dormant') || !c.offsetParent) return; s++; c.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') }, 1000)
   }
 }

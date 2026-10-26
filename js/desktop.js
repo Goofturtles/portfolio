@@ -44,6 +44,7 @@ export function init(onAct, onTitle) { act = onAct; setTitle = onTitle }
 const away = () => root.hidden || root.classList.contains('dormant')
 function doze(on) {
   root.classList.toggle('dormant', on); root.inert = on
+  if (on && onlap) laptop.park()                            // resting: nothing of it runs a frame in the room (js/laptop.js, css/laptop.css, js/apps/common.js)
 }
 export const prepare = () => Promise.all([apps.all(), loadOwn().catch(() => {})]).then((r) => { if (!mode && root.hidden) build(); return r })      // built ahead, hidden: arriving on it must not cost the flight any frames
 export const isPhone = () => phoneMQ.matches
@@ -61,7 +62,13 @@ export async function enter(id, arg) {
   // app opens on a desktop. Opening it mid-flight cost the flight over 100 ms of frames.
   const landing = mode === 'desk' && window.__landing
   window.__landing = null
-  if (landing) { showStart(); landing.then(() => { if (away()) return; show(id, arg) }) } else show(id, arg)
+  // Back at the laptop itself (not at one place on it) the desktop is as it was left, for the life of the page: the same
+  // windows open where they were, the one in front still in front, minimised or maximised as before, each app as it was
+  // (the browser's tabs and scroll). Leaving only hid it (leave() below); nothing here puts a window away or opens one.
+  // The first visit has no windows, so it shows the start card, as ever.
+  const kept = mode === 'desk' && id === 'start' && wins.size > 0
+  if (kept) marks()
+  if (landing) { if (!kept) showStart(); landing.then(() => { if (away()) return; if (!kept) show(id, arg) }) } else if (!kept) show(id, arg)
   await wait(reduced() ? 0 : onlap ? 600 : 320)
   root.classList.remove('arriving')
 }
@@ -73,7 +80,7 @@ export async function leave() {
   await wait(reduced() ? 0 : 280)
   if (onlap) doze(true); else root.hidden = true
   root.classList.remove('leaving')
-  for (const a of [wins.get('films'), screens.get('films')]) if (a && a.app) a.app.stop()      // a film does not play on behind another place
+  for (const a of [wins.get('films'), screens.get('films')]) if (a && a.app) a.app.pause()      // a film does not play on behind another place; it waits where it was and is not started again
 }
 export function show(id = 'portfolio', arg) { mode === 'phone' ? showPhone(id === 'start' ? 'portfolio' : id, arg) : id === 'start' ? showStart() : open(id, arg) }
 export function setTheme() {

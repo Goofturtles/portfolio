@@ -58,9 +58,7 @@
       const win = A(st, 'win br-win', '', WIN.x, WIN.y, WIN.w, WIN.h)
       win.style.setProperty('--pz', ZOOM)
       win.innerHTML =
-        `<div class="br-tabs"><div class="br-tab"><span class="br-tfav">${PIX('ai', 18, 20)}</span><b class="br-tt"></b>` +
-        `<button type="button" class="br-ib br-x"${NAME('Close tab')}>${ic(SVG.x, 13)}</button></div>` +
-        `<button type="button" class="br-ib br-new"${NAME('New tab')}>${ic(ICON.plus, 15)}</button>` +
+        `<div class="br-tabs"><div class="br-tablist" role="tablist" aria-label="Tabs"><button type="button" class="br-ib br-new"${NAME('New tab')}>${ic(ICON.plus, 15)}</button></div>` +
         `<span class="br-wb">${I('min', 11, '', 'Minimise', 'br')}${I('max', 11, '', 'Maximise', 'br')}${I('close', 12, '', 'Close', 'br')}</span></div>` +
         `<div class="br-bar"><span class="br-nav"><button type="button" class="br-ib br-back"${NAME('Back')}>${ic(ICON.back, 21)}</button>` +
         `<button type="button" class="br-ib br-fwd"${NAME('Forward')}>${ic(ICON.fwd, 21)}</button>` +
@@ -71,7 +69,7 @@
         `<button type="button" class="br-me"${NAME('About ' + D.profile.name)}>${AV(NAME1[0], 'var(--a1)', 30)}</button></div>` +
         `<i class="br-prog" aria-hidden="true"></i><div class="br-view" tabindex="-1"><div class="br-page"></div></div><div class="br-sb" aria-hidden="true"><i></i></div><div class="br-live" role="status"></div>`
       const $ = (s, root) => (root || win).querySelector(s)
-      const tabTitle = $('.br-tt'), url = $('.br-url'), addr = $('.br-addr'), viewEl = $('.br-view'), page = $('.br-page'), sb = $('.br-sb'), live = $('.br-live')
+      const list = $('.br-tablist'), newBtn = $('.br-new'), url = $('.br-url'), addr = $('.br-addr'), viewEl = $('.br-view'), page = $('.br-page'), sb = $('.br-sb'), live = $('.br-live')
 
       // ---- one link from the lookup -> one ordinary result --------------------------------------------
       function site(l, pid) {
@@ -109,7 +107,7 @@
       function resultHTML(x, q) {
         const top = `<a class="g-r-top"${ext(x.href)}><span class="g-r-site"><span class="g-fav">${x.fav}</span><span class="g-r-n"><b>${esc(x.name)}</b><cite>${esc(x.crumb)}</cite></span></span><h3 class="g-title">${esc(x.title)}</h3></a>`
         const body = (x.snip ? `<p class="g-snip">${bold(x.snip, q)}</p>` : '') + (x.chips ? `<div class="g-chips">${x.chips.map((c) => `<a${ext(c.href)}>${esc(c.label)}</a>`).join('')}</div>` : '')
-        return x.thumb !== undefined ? `<div class="g-r film rise"><span class="g-thumb">${x.thumb}</span><div>${top}${body}</div></div>` : `<div class="g-r rise">${top}${body}</div>`
+        return x.thumb !== undefined ? `<div class="g-r g-film rise"><span class="g-thumb">${x.thumb}</span><div>${top}${body}</div></div>` : `<div class="g-r rise">${top}${body}</div>`
       }
 
       // ---- AI overview --------------------------------------------------------------------------------
@@ -155,7 +153,7 @@
       // ---- the panel for a project: picture, name, link buttons, facts ---------------------------------
       function panelHTML(r) {
         const p = byId[r.id]
-        const pic = r.visual ? `<div class="g-kp-pic"><img src="${esc(r.visual)}" alt="${esc(r.title)}: a still from the project"></div>` : `<div class="g-kp-pic none" aria-hidden="true">${PIC[r.id] ? EMO(PIC[r.id][0], PIC[r.id][1], 64) : ''}</div>`
+        const pic = r.visual ? `<div class="g-kp-pic"><img src="${esc(r.visual)}" alt="${esc(r.title)}: a still from the project" decoding="async"></div>` : `<div class="g-kp-pic none" aria-hidden="true">${PIC[r.id] ? EMO(PIC[r.id][0], PIC[r.id][1], 64) : ''}</div>`
         const f1 = r.facts[1] || '', l1 = /\b(1st|2nd|3rd|place|best|top \d)\b/i.test(f1) ? 'Result' : /hack|challenge|humanity/i.test(f1) ? 'Event' : 'Status'
         const facts = [['Build', r.facts[0]], [l1, f1], ['Tags', r.tags.join(', ')], ['Source', r.sources.join(', ')]].filter((f) => f[1])
         const btns = r.links.map((l) => `<a class="g-kp-btn"${ext(l.href)}>${ic(ICON[KIND_ICON[l.kind] || 'globe'], 17)}${esc(l.label)}</a>`).join('')
@@ -198,7 +196,7 @@
               col += resultHTML(Object.assign(site(l, p.id), { name: p.title, href: l.href, title: p.title + ' - ' + (pr.facts[1] || pr.facts[0]), snip: p.description, chips: pr.links.map((k) => ({ label: k.label, href: k.href })) }), q)
             } else {
               const l = pr.links.find((k) => k.kind === 'video'); if (!l) continue
-              const thumb = p.visual ? `<img src="${esc(p.visual)}" alt="">` : PIC[p.id] ? EMO(PIC[p.id][0], PIC[p.id][1], 44) : ''
+              const thumb = p.visual ? `<img src="${esc(p.visual)}" alt="" loading="lazy" decoding="async">` : PIC[p.id] ? EMO(PIC[p.id][0], PIC[p.id][1], 44) : ''
               col += resultHTML(Object.assign(linkResult(l, p.id), { thumb }), q)
             }
           }
@@ -222,12 +220,28 @@
       }
 
       // ---- state: what is shown, and the back / forward list --------------------------------------------
-      let S = { q: '', tab: 'all' }, hist = [S], at = 0, used = false, rises = []
+      // SITE: tabs (Arjun, twice: "new tab" did nothing). Each tab keeps its own page (the question and the filter), address,
+      // title, scroll position and back / forward list; the live S, hist and at below are the selected tab's, written back
+      // to it (pick) when another is selected. Up to MAXTABS; closing the last one leaves a fresh new tab.
+      const MAXTABS = 8, tabs = []
+      function addTab() {
+        const t = { S: { q: '', tab: 'all' }, at: 0, s: 0, el: document.createElement('div') }
+        t.hist = [t.S]
+        t.el.className = 'br-tab'; t.el.setAttribute('role', 'presentation')
+        t.el.innerHTML = `<button type="button" class="br-ts" role="tab" aria-selected="false" tabindex="-1"><span class="br-tfav">${PIX('ai', 18, 20)}</span><b class="br-tt">New tab</b></button>` +
+          `<button type="button" class="br-ib br-x"${NAME('Close tab')}>${ic(SVG.x, 13)}</button>`
+        t.ts = t.el.firstChild; t.tt = t.ts.lastChild
+        list.insertBefore(t.el, newBtn); tabs.push(t); newBtn.disabled = tabs.length >= MAXTABS
+        return t
+      }
+      let cur = addTab(), S = cur.S, hist = cur.hist, at = 0, used = false, rises = []
+      const mark = () => { for (const x of tabs) { const on = x === cur; x.el.classList.toggle('sel', on); x.ts.setAttribute('aria-selected', on); x.ts.tabIndex = on ? 0 : -1 } }
+      mark()
       function render(opt) {
         opt = opt || {}
         const start = !S.q
         page.innerHTML = start ? startHTML() : resultsHTML(S, opt)
-        tabTitle.textContent = start ? 'New tab' : S.q + ' - AI Arjun'
+        cur.tt.textContent = cur.ts.title = start ? 'New tab' : S.q + ' - AI Arjun'
         const a = address(S.q, S.tab)
         url.value = a; url.classList.toggle('has', !!a)
         addr.innerHTML = a ? `<b>${HOST}</b>${esc(a.slice(HOST.length))}` : ''
@@ -276,6 +290,36 @@
       }
       const step = (d) => { if (hist[at + d]) { used = true; at += d; S = hist[at]; render(); settle(); viewEl.focus({ preventScroll: true }) } }
       const settle = () => { for (const e of rises) { e.style.opacity = ''; e.style.transform = '' } }
+      // select a tab: the one left is written back, the new one is drawn from its own state at its own scroll
+      function pick(t) {
+        if (t === cur) return
+        if (cur) { cur.S = S; cur.hist = hist; cur.at = at; cur.s = viewEl.scrollTop }
+        cur = t; S = t.S; hist = t.hist; at = t.at
+        mark()
+        clearTimeout(loadT); win.classList.remove('loading', 'loaded', 'reveal')      // a search still loading belongs to the tab left: this one is shown as it was
+        render({ s: t.s }); settle()
+      }
+      function openTab() {
+        if (tabs.length >= MAXTABS) return
+        used = true
+        pick(addTab())
+        const box = $('.n-search .g-q'); if (box) box.focus()
+      }
+      function closeTab(t) {
+        const i = tabs.indexOf(t); if (i < 0) return
+        tabs.splice(i, 1); t.el.remove(); newBtn.disabled = tabs.length >= MAXTABS
+        used = true
+        if (t !== cur) return
+        cur = null                                                 // the page on show is the one that was closed: nothing to write back
+        pick(tabs.length ? tabs[Math.min(i, tabs.length - 1)] : addTab())      // its neighbour, or, after the last, one fresh new tab
+        if (!S.q) { const box = $('.n-search .g-q'); if (box) box.focus() } else viewEl.focus({ preventScroll: true })
+      }
+      list.addEventListener('keydown', (e) => {
+        const i = tabs.findIndex((t) => t.ts === e.target), j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1
+        if (i < 0 || !tabs[j]) return
+        e.preventDefault(); pick(tabs[j]); tabs[j].ts.focus()
+      })
+      list.addEventListener('auxclick', (e) => { const t = e.button === 1 && tabs.find((x) => x.el.contains(e.target)); if (t) { e.preventDefault(); closeTab(t) } })      // the middle button closes a tab
 
       // ---- real use: forms, links, buttons ----------------------------------------------------------------
       win.addEventListener('submit', (e) => {
@@ -287,7 +331,9 @@
         const link = e.target.closest('a[data-go]')
         if (link) { e.preventDefault(); const p = new URLSearchParams(link.getAttribute('href').split('?')[1]); return go(p.get('q') || '', p.get('tab') || 'all') }
         const b = e.target.closest('button'); if (!b) return
-        if (b.classList.contains('br-new') || b.classList.contains('br-x')) { go('', 'all', { quiet: true }); const box = $('.n-search .g-q'); if (box) box.focus() }
+        if (b.classList.contains('br-new')) openTab()
+        else if (b.classList.contains('br-x')) closeTab(tabs.find((t) => t.el.contains(b)))
+        else if (b.classList.contains('br-ts')) pick(tabs.find((t) => t.ts === b))
         else if (b.classList.contains('br-back')) step(-1)
         else if (b.classList.contains('br-fwd')) step(1)
         else if (b.classList.contains('br-re')) { used = true; render(); settle() }
@@ -326,7 +372,7 @@
         rises.forEach((e, i) => { const k = P(t, tPage + i * 0.07, tPage + 0.45 + i * 0.07, E.o3); e.style.opacity = k < 1 ? k : ''; e.style.transform = k < 1 ? `translateY(${((1 - k) * 14).toFixed(2)}px)` : '' })
       }
       window.__ask = (q, tab) => go(q, tab, { quiet: true })
-      window.__browser = { state: () => ({ q: S.q, tab: S.tab, at, hist: hist.length }), bar }
+      window.__browser = { state: () => ({ q: S.q, tab: S.tab, at, hist: hist.length, tabs: tabs.length, current: tabs.indexOf(cur) }), bar }
       return draw
     },
   })

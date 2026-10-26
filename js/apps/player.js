@@ -137,6 +137,7 @@ export function mount(box, ctx) {
     title: 'Films',
     show(id) { const n = films.findIndex((f) => f.p.id === id); if (n >= 0) { if (n !== i) pick(n); view('now') } },
     stop: () => pick(i),
+    pause() { if (video) video.pause(); else if (frame && playing) { say('pauseVideo'); playing = false; paint() } },      // leaving the laptop: the film stays where it is, paused
     focus() { ($('.pl-list button[aria-current]') || $('.pl-pp')).focus({ preventScroll: true }) },
   }
 }

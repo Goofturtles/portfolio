@@ -394,11 +394,12 @@
   {
    "id": "second-opinion",
    "title": "Second Opinion",
-   "meta": "Hackathon build · CSC Back-to-School Hackathon",
+   "meta": "Hackathon build · CSC Back-to-School Hackathon · 1st place",
    "tags": [
     "Homework",
     "On-device AI",
-    "Built with AI coding tools"
+    "Built with AI coding tools",
+    "Hackathon winner"
    ],
    "description": "Check homework with a friend without copying. You and a friend each type your own answers to the same homework. Second Opinion shows you only which question numbers you disagree on. It never shows either of you the other's answers.",
    "cta": null,
@@ -450,6 +451,31 @@
     }
    ],
    "visual": "media/own/yt-9xP2fOcNuAQ.jpg"
+  },
+  {
+   "id": "dinner-count",
+   "title": "Dinner Count",
+   "meta": "Hackathon build · Lake Oswego Hacks 2026 · Runner-up",
+   "tags": [
+    "Food waste",
+    "Installable web app",
+    "Built with AI coding tools"
+   ],
+   "description": "Who's home for dinner, turned into exactly how much to cook, and it learns from your leftovers. Every family member's phone gets one question at 4 PM, Home for dinner?, and the cook's screen turns the answers into an amount, like 3 eating + 1 plate = cook 320 g pasta. After dinner the cook taps how much was left, and the amount for that dish adjusts to how that family eats.",
+   "cta": null,
+   "links": [
+    {
+     "kind": "live",
+     "label": "Live site",
+     "href": "https://dinner-count.onrender.com"
+    },
+    {
+     "kind": "code",
+     "label": "GitHub",
+     "href": "https://github.com/Goofturtles/dinner-count"
+    }
+   ],
+   "visual": "media/own/dinner-count.jpg"
   }
  ],
  "record": [
@@ -465,6 +491,19 @@
    "project": "SECOND LOOK"
   },
   {
+   "id": "csc",
+   "title": "CSC Back-to-School",
+   "tag": "1st place",
+   "summary": "1st place, CSC Back-to-School Hackathon",
+   "line": "At the CSC Back-to-School Hackathon I took 1st place, for Second Opinion.",
+   "award": "CSC Back-to-School Hackathon",
+   "cta": "Watch the video",
+   "href": "https://www.youtube.com/watch?v=TGgBjHqTN44",
+   "projectId": "second-opinion",
+   "pic": "peddiehacks",
+   "project": "Second Opinion"
+  },
+  {
    "id": "oregonhacks",
    "title": "OregonHacks",
    "tag": "2nd place",
@@ -474,6 +513,17 @@
    "href": "https://www.youtube.com/watch?v=kqyWLMqaGt0",
    "projectId": "shade-route",
    "project": "Shade Route"
+  },
+  {
+   "id": "lakeoswego",
+   "title": "Lake Oswego Hacks",
+   "tag": "Runner-up",
+   "summary": "Runner-up",
+   "line": "At Lake Oswego Hacks I was runner-up, for Dinner Count.",
+   "award": "Lake Oswego Hacks 2026",
+   "projectId": "dinner-count",
+   "pic": "oregonhacks",
+   "project": "Dinner Count"
   },
   {
    "id": "rlchacks",

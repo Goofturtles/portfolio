@@ -24,18 +24,29 @@
 :where(.br-win) :focus-visible { outline: 2px solid var(--br-focus); outline-offset: 2px; }
 :where(.br-win) input { font: inherit; color: inherit; border: 0; outline: 0; background: transparent; padding: 0; margin: 0; min-width: 0; }
 
-/* ---- tab strip: one tab, new-tab button, the window buttons of the other windows (ui.css .tbar .wb) ---- */
+/* ---- tab strip: the tabs, the new-tab button, the window buttons of the other windows (ui.css .tbar .wb) ---- */
 .br-tabs { position: absolute; left: 0; right: 0; top: 0; height: 48px; }
-.br-tab { position: absolute; left: 10px; bottom: 0; width: 290px; height: 40px; box-sizing: border-box; padding: 0 9px 1px 13px; display: flex; align-items: center; gap: 10px; background: var(--br-bar); border-radius: 10px 10px 0 0; }
-.br-tab::before, .br-tab::after { content: ''; position: absolute; bottom: 0; width: 10px; height: 10px; }
-.br-tab::before { left: -10px; background: radial-gradient(circle at 0 0, transparent 9.6px, var(--br-bar) 10.2px); }
-.br-tab::after { right: -10px; background: radial-gradient(circle at 100% 0, transparent 9.6px, var(--br-bar) 10.2px); }
+/* SITE: a real tab strip (view_browser.js): the tabs side by side, the selected one drawn as the page's own surface with its
+   inverted corners, all shrinking to fit (up to 8), the + after the last. Its right edge stops short of the window's three
+   buttons: 3 x 46 px of the window (css/shell.css), which is 1/--k of that in this view's own pixels */
+.br-tablist { position: absolute; left: 10px; top: 0; bottom: 0; right: calc(138px * max(1, var(--k, 1)) / var(--k, 1) + 14px); display: flex; align-items: flex-end; }
+.br-tab { position: relative; flex: 0 1 290px; min-width: 0; height: 40px; box-sizing: border-box; display: flex; align-items: center; border-radius: 10px 10px 0 0; }
+.br-tab > * { position: relative; z-index: 1; }
+.br-tab.sel { z-index: 2; background: var(--br-bar); }
+.br-tab.sel::before, .br-tab.sel::after { content: ''; position: absolute; bottom: 0; width: 10px; height: 10px; }
+.br-tab.sel::before { left: -10px; background: radial-gradient(circle at 0 0, transparent 9.6px, var(--br-bar) 10.2px); }
+.br-tab.sel::after { right: -10px; background: radial-gradient(circle at 100% 0, transparent 9.6px, var(--br-bar) 10.2px); }
+.br-tab:not(.sel)::before { content: ''; position: absolute; inset: 5px 0 7px; border-radius: 8px; background: rgba(255, 255, 255, .55); opacity: 0; transition: opacity .12s ease; }
+.br-tab:not(.sel):hover::before { opacity: 1; }
+.br-tab:not(.sel)::after { content: ''; position: absolute; right: 0; top: 14px; width: 1px; height: 16px; background: rgba(60, 50, 90, .28); }
+.br-tab:not(.sel):has(+ .br-tab.sel)::after, .br-tab:not(.sel):nth-last-child(2)::after { display: none; }      /* no rule against the selected tab, or after the last */
+.br-ts { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 0 1px 13px; text-align: left; }
 .br-tfav { display: inline-grid; place-items: center; width: 20px; height: 20px; flex: none; }
 .br-tt { flex: 1; min-width: 0; font: 400 14.5px/1.4 var(--ft); color: var(--g-ink); white-space: nowrap; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
 .br-ib { display: inline-grid; place-items: center; border-radius: 50%; color: var(--br-ico); flex: none; position: relative; }
 .br-ib:hover { background: rgba(60, 50, 90, .09); }
-.br-x { width: 22px; height: 22px; }
-.br-new { position: absolute; left: 308px; top: 14px; width: 28px; height: 28px; }
+.br-x { width: 22px; height: 22px; margin: 0 9px 0 4px; }
+.br-new { width: 28px; height: 28px; margin: 0 0 6px 10px; align-self: flex-end; }
 .br-wb { position: absolute; right: 0; top: 0; height: 100%; color: #6f6c78; }
 .br-wb .ic { position: absolute; top: 18px; }
 .br-wb .ic:nth-child(1) { right: 97px; } .br-wb .ic:nth-child(2) { right: 55.5px; } .br-wb .ic:nth-child(3) { right: 14px; }
@@ -142,10 +153,14 @@
 /* sitelink chips under a result (google-05) */
 .g-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .g-chips a { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border: 1px solid var(--g-edge); border-radius: 4px; font: 400 14px/1.3 var(--g-arial); color: var(--g-link); }
-/* a film result: the project's own still beside it */
-.g-r.film { display: grid; grid-template-columns: 178px 1fr; column-gap: 16px; align-items: start; }
-.g-thumb { display: grid; place-items: center; width: 178px; aspect-ratio: 16 / 11; border-radius: 8px; overflow: hidden; background: var(--g-fill); }
+/* a film result: the project's own still beside it, 16:9, and the text in a column of its own. SITE: this card was called
+   .film, which css/site.css and css/shell.css style as the Films list's card (display block, padding on every span inside,
+   a box shadow, img height auto): the padding widened the still over the text column and turned the source line and the
+   title into padded blocks. Its own name keeps those rules off it. */
+.g-r.g-film { display: grid; grid-template-columns: 178px minmax(0, 1fr); column-gap: 16px; align-items: start; }
+.g-thumb { display: grid; grid-template: 100% / 100%; place-items: center; width: 178px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--g-fill); }
 .g-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.g-film > div { min-width: 0; }
 .g-note { margin: -8px 0 30px; font: 400 14px/22px var(--g-arial); color: var(--g-faint); }
 
 /* ---- People also ask (google-02 rows, google-08 opened) ---- */
@@ -213,8 +228,8 @@
 .br-win.loaded .br-prog { transform: scaleX(1); opacity: 0; transition: transform .18s ease-out, opacity .25s ease .18s; }
 @keyframes br-prog { from { transform: scaleX(.04); } to { transform: scaleX(.86); } }
 .br-tfav { position: relative; }
-.br-win.loading .br-tfav > * { visibility: hidden; }
-.br-win.loading .br-tfav::after { content: ''; position: absolute; inset: 2px; border: 2px solid var(--g-ring); border-top-color: var(--g-brand); border-radius: 50%; animation: br-spin .7s linear infinite; }
+.br-win.loading .br-tab.sel .br-tfav > * { visibility: hidden; }
+.br-win.loading .br-tab.sel .br-tfav::after { content: ''; position: absolute; inset: 2px; border: 2px solid var(--g-ring); border-top-color: var(--g-brand); border-radius: 50%; animation: br-spin .7s linear infinite; }
 @keyframes br-spin { to { transform: rotate(360deg); } }
 .br-win.loading .g-col > :not(.g-skel), .br-win.loading .g-main > :not(.g-col) { visibility: hidden; }
 .g-skel { padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--g-line); }
