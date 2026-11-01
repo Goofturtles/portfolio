@@ -44,6 +44,14 @@ replace them) before publishing the site to a public URL.**
   for Tomorrow competition (I appear in it). Used with that understanding.
 - **`me/school.jpg`** — banner image from my school's own website.
 
+## The room's guide and 3D (added 2026-11-01)
+- **Guide voice** — `media/guide/*.mp3`, generated with ElevenLabs text-to-speech
+  (premade voice "Will", model eleven_v4) from the lines in `js/guide.js`.
+- **Guide character** — the cartoon of Arjun in `js/guide/arjun.js` and
+  `css/guide.css`, drawn for this site as inline SVG.
+- **meshoptimizer** — `room.glb` is compressed with gltfpack, and its decoder
+  is `vendor/three/addons/libs/meshopt_decoder.module.js` (MIT, Arseny Kapoulkine).
+
 ## Notes
 - The large video masters are not committed to the repository (they exceed
   GitHub's 100 MB per-file limit). They live locally and/or on the deploy host.
