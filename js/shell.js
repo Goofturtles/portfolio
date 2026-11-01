@@ -16,25 +16,25 @@
 //   phone     five slots, the line icon over an 11 px Regular name (the fifth is More: everything else, in a sheet).
 //   frame     32 px title bar (16 px icon 16 px from the edge, the title 16 px after it in caption type), three
 //             46 x 32 caption buttons, Close red on hover. Measurements: learn.microsoft.com, "Windows app title bar".
-import { el, reduced, calm, setCalm } from './config.js'
+import { el, reduced, calm, setCalm, voice, setVoice } from './config.js'
 import { ico, line, CAPTION } from './icons.js'
 import { film, linksFor } from './apps/common.js'
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
 const NAME = { home: 'Room', app: 'Portfolio', search: 'Search', ai: 'AI Arjun', projects: 'Projects', films: 'Films', how: 'How I work', results: 'Results', about: 'About', contact: 'Contact',
-  github: 'GitHub', linkedin: 'LinkedIn', medium: 'Medium', youtube: 'YouTube', themes: 'Themes', sound: 'Sound', calm: 'Reduce motion', plain: 'Plain list', more: 'More' }
+  github: 'GitHub', linkedin: 'LinkedIn', medium: 'Medium', youtube: 'YouTube', themes: 'Themes', sound: 'Sound', calm: 'Reduce motion', plain: 'Plain list', more: 'More', tour: 'Tutorial' }
 export const YOUTUBE = 'https://www.youtube.com/@AER-S'
 const TO = { home: '#home', app: '#portfolio', search: '#ai-arjun', ai: '#ai-arjun', how: '#how-i-work', plain: 'plain.html', youtube: YOUTUBE }
 const ROOM_TO = { projects: '#portfolio', how: '#pages-how', results: '#pages-results' }      // from the room these three land elsewhere (js/main.js CHIP)
 // the tray's four: each icon carries both drawings, the line one and the filled one for when it is on (css/shell.css swaps them)
-const TRAY = { themes: 1, sound: 1, calm: 1, plain: 1 }
+const TRAY = { tour: 1, themes: 1, sound: 1, calm: 1, plain: 1 }
 const sysCalm = matchMedia('(prefers-reduced-motion: reduce)')
 // what each bar carries. phone: the four slots before More; sheet: the groups behind More
 const BARS = {
-  desktop: { left: 'home', mid: ['app', 'search', 'ai', 'projects', 'films', 'how', 'results', 'about', 'contact'], tray: ['themes', 'calm'],
-    phone: ['home', 'app', 'ai', 'projects'], sheet: [['films', 'how', 'results', 'about', 'contact'], ['github', 'linkedin', 'medium', 'youtube'], ['themes', 'sound', 'calm', 'plain']] },
-  room: { left: null, mid: ['app', 'projects', 'ai', 'how', 'results', 'about', 'contact'], tray: ['themes', 'calm', 'plain'],
-    phone: ['projects', 'ai', 'how', 'results'], sheet: [['about', 'contact'], ['themes', 'calm', 'plain']] },
+  desktop: { left: 'home', mid: ['app', 'search', 'ai', 'projects', 'films', 'how', 'results', 'about', 'contact'], tray: ['tour', 'themes', 'calm'],
+    phone: ['home', 'app', 'ai', 'projects'], sheet: [['films', 'how', 'results', 'about', 'contact'], ['github', 'linkedin', 'medium', 'youtube'], ['tour', 'themes', 'sound', 'calm', 'plain']] },
+  room: { left: null, mid: ['app', 'projects', 'ai', 'how', 'results', 'about', 'contact'], tray: ['tour', 'themes', 'calm', 'plain'],
+    phone: ['projects', 'ai', 'how', 'results'], sheet: [['about', 'contact'], ['tour', 'themes', 'sound', 'calm', 'plain']] },
 }
 
 // opts: { kind: 'desktop' | 'room', pick(id, anchor, event, arg) }. Returns { el, stop }.
@@ -44,7 +44,7 @@ export function taskbar(parent, ui, phone, opts) {
   bar.setAttribute('role', 'navigation'); bar.setAttribute('aria-label', 'Taskbar')
   const to = (id) => (room && ROOM_TO[id]) || L[id] || TO[id] || '#' + id
   const name = (id) => (id === 'app' ? D.profile.name + ': Portfolio' : id === 'home' ? 'Back to the room' : NAME[id])
-  const attrs = (id) => { const h = to(id), out = /^https?:/.test(h); return `data-ico="${id}" href="${esc(h)}"${out ? ' target="_blank" rel="noopener"' : ''} aria-label="${esc(name(id))}"` + (id !== 'plain' && TRAY[id] && id !== 'themes' ? ' role="button" aria-pressed="false"' : '') }
+  const attrs = (id) => { const h = to(id), out = /^https?:/.test(h); return `data-ico="${id}" href="${esc(h)}"${out ? ' target="_blank" rel="noopener"' : ''} aria-label="${esc(name(id))}"` + (id === 'tour' ? ' role="button"' : id !== 'plain' && TRAY[id] && id !== 'themes' ? ' role="button" aria-pressed="false"' : '') }
   const tip = (text) => `<small class="tip">${esc(text)}</small>`
   const tk = (id) => {
     if (id === 'search') return `<a class="tk tk-search" ${attrs(id)} role="button" aria-haspopup="dialog" aria-expanded="false">${ico('search', 16)}<span class="tk-q">Search</span>${tip('Search his work, or ask AI Arjun')}</a>`
@@ -71,7 +71,6 @@ export function taskbar(parent, ui, phone, opts) {
   tick()
   const ticking = setInterval(tick, 5000)
 
-  let sound = false
   const all = (sel) => [bar, sheet].filter(Boolean).flatMap((h) => [...h.querySelectorAll(sel)])
   // Reduce motion: on when the visitor chose it here or when the system asks for it, and read live (config.js sends
   // 'motionchange' for both). The system's wish cannot be undone from the page, so then the control is shown on and inert.
@@ -84,10 +83,11 @@ export function taskbar(parent, ui, phone, opts) {
       if (s) s.textContent = sys ? 'On, set by your system' : reduced() ? 'On' : 'Off'
       if (t) t.textContent = sys ? 'Reduce motion: on, set by your system' : NAME.calm
     }
-    for (const a of all('[data-ico="sound"]')) { a.setAttribute('aria-pressed', sound); const s = a.querySelector('em'); if (s) s.textContent = sound ? 'On' : 'Off' }
+    for (const a of all('[data-ico="sound"]')) { a.setAttribute('aria-pressed', voice()); const s = a.querySelector('em'); if (s) s.textContent = voice() ? 'On' : 'Off' }
   }
   sync()
   addEventListener('motionchange', sync)
+  addEventListener('voicechange', sync)
   function showSheet(on) {
     if (!sheet || sheet.hidden === !on) return
     sheet.hidden = !on
@@ -105,12 +105,11 @@ export function taskbar(parent, ui, phone, opts) {
     e.preventDefault()
     if (id === 'search') return search.toggle()
     if (id === 'calm') return sysCalm.matches ? undefined : setCalm(!calm())
-    if (id === 'sound') { sound = !sound; sync() }
     opts.pick(id, a, e)
   }
   bar.addEventListener('click', click)
   if (sheet) { sheet.addEventListener('click', click); sheet.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); showSheet(false); bar.querySelector('[data-ico="more"]').focus({ preventScroll: true }) } }) }
-  return { el: bar, stop: () => { clearInterval(ticking); removeEventListener('motionchange', sync); if (sheet) sheet.remove(); if (search) search.remove() } }
+  return { el: bar, stop: () => { clearInterval(ticking); removeEventListener('motionchange', sync); removeEventListener('voicechange', sync); if (sheet) sheet.remove(); if (search) search.remove() } }
 }
 
 // ---- Windows Search (film/ref/ui/board/search/): the panel above the taskbar ----

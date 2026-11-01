@@ -20,6 +20,12 @@
 // never the device's own glyph.
 import { APP, COLOUR, LINE, SHELL } from './icons.gen.js'
 
+// Tutorial (js/guide.js): a question in a speech bubble, drawn on the same 24 px grid and 1.5 px line as the tray's
+// other Fluent icons (after Fluent's Chat Help); the 20 and 16 px sizes are the same drawing scaled
+const TOUR24 = '<path d="M12 2a10 10 0 1 1-4.64 18.86l-4.3 1.12a.85.85 0 0 1-1.03-1.04l1.11-4.3A10 10 0 0 1 12 2Zm0 1.5a8.5 8.5 0 0 0-7.4 12.68l.15.27-1.12 4.27 4.28-1.11.27.15A8.5 8.5 0 1 0 12 3.5Z"/>' +
+  '<path d="M12 6.5a3 3 0 0 0-3 3 .75.75 0 0 0 1.5 0 1.5 1.5 0 1 1 2.39 1.21l-.45.33a3.1 3.1 0 0 0-1.19 2.46v.25a.75.75 0 0 0 1.5 0v-.25c0-.5.24-.96.64-1.25l.45-.33A3 3 0 0 0 12 6.5Zm0 9.25a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>'
+SHELL.tour = { r24: TOUR24, f24: TOUR24, r20: `<g transform="scale(.8333)">${TOUR24}</g>`, f20: `<g transform="scale(.8333)">${TOUR24}</g>`, r16: `<g transform="scale(.6667)">${TOUR24}</g>`, f16: `<g transform="scale(.6667)">${TOUR24}</g>` }
+
 export const MARK = `<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="arjun-mark-g" x1="8" y1="4" x2="40" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#9a76ff"/><stop offset="1" stop-color="#5a3bd0"/></linearGradient></defs><rect x="4" y="4" width="40" height="40" rx="10" fill="url(#arjun-mark-g)"/><path fill="#fff" fill-rule="evenodd" d="M24 12.500c1.200 0 2.200.700 2.700 1.800l8.100 18.600a2.200 2.200 0 1 1-4 1.800L29.300 31H18.700l-1.500 3.700a2.200 2.200 0 1 1-4-1.800l8.100-18.600c.5-1.100 1.500-1.800 2.700-1.800Zm0 6.900L20.500 27h7L24 19.400Z"/></svg>`
 const MARK_URI = 'data:image/svg+xml,' + encodeURIComponent(MARK.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '))      // as a picture: its gradient then never depends on another copy in the page
 export const CAPTION = {

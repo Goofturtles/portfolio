@@ -7,7 +7,7 @@
 const clamp = (v, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, v))
 
 export function createInput(canvas, root, { rig, things, onHover, onPick }) {
-  const ptr = { x: 0, y: 0, vx: 0, vy: 0, inside: false, pushes: false }      // where the pointer is, -1..1 (y up), and how fast it moves
+  const ptr = { x: 0, y: 0, vx: 0, vy: 0, inside: false, pushes: false, last: performance.now(), live: false }      // where the pointer is, -1..1 (y up), how fast it moves, when a hand last moved (ms), whether the room answers
   const fine = matchMedia('(hover: hover) and (pointer: fine)')
   let enabled = false, press = null, px = 0, py = 0, shown = null, lastMouse = -1e9, tiltAsked = false, tiltBase = null, goTimer = 0, off = 0
   const at = (e) => { const r = canvas.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2] }
@@ -16,7 +16,7 @@ export function createInput(canvas, root, { rig, things, onHover, onPick }) {
   function move(e) {
     if (!enabled) return
     const [x, y] = at(e)
-    ptr.x = x; ptr.y = y
+    ptr.x = x; ptr.y = y; ptr.last = performance.now()
     if (e.pointerType !== 'touch') { ptr.inside = true; lastMouse = performance.now(); if (!press || !press.mode) rig.lean(x, -y) }
     if (!press || e.pointerId !== press.id) return
     const dx = e.clientX - press.lx, w = canvas.clientWidth || 1
@@ -32,7 +32,7 @@ export function createInput(canvas, root, { rig, things, onHover, onPick }) {
   function down(e) {
     if (!enabled || press || (e.pointerType === 'mouse' && e.button !== 0)) return
     const [x, y] = at(e)
-    ptr.x = x; ptr.y = y
+    ptr.x = x; ptr.y = y; ptr.last = performance.now()
     press = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, touch: e.pointerType === 'touch', mode: null, hit: things.pick(x, y) }
     try { canvas.setPointerCapture(e.pointerId) } catch (err) { /* a pointer that is already gone */ }
   }
@@ -85,6 +85,7 @@ export function createInput(canvas, root, { rig, things, onHover, onPick }) {
       ptr.vx += ((ptr.x - px) / dt - ptr.vx) * 0.5; ptr.vy += ((ptr.y - py) / dt - ptr.vy) * 0.5
       px = ptr.x; py = ptr.y
       ptr.pushes = enabled && ptr.inside && !press
+      ptr.live = enabled
       if (!enabled || !ptr.inside || (press && press.mode) || rig.busy || !fine.matches) return
       const hit = things.pick(ptr.x, ptr.y)
       // an object keeps the pointer for a moment after it slips off (a swaying flower, a thin ring): no flicker at edges

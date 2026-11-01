@@ -22,6 +22,22 @@ export function setCalm(on) {
   dispatchEvent(new CustomEvent('motionchange'))
 }
 sysCalm.addEventListener('change', () => dispatchEvent(new CustomEvent('motionchange')))
+// Sound: the guide's voice (js/guide.js), on unless the visitor turned it off (the guide's own speaker button, or Sound
+// in the phone's More sheet), kept for the next visit. 'voicechange' tells whoever shows it.
+let voiceOn = true
+try { voiceOn = localStorage.getItem('pc-voice') !== '0' } catch (e) { /* private mode: on for this visit */ }
+export const voice = () => voiceOn
+export function setVoice(on) {
+  voiceOn = !!on
+  try { localStorage.setItem('pc-voice', on ? '1' : '0') } catch (e) { /* as above */ }
+  dispatchEvent(new CustomEvent('voicechange'))
+}
+// a small store that survives private mode for the length of the visit
+const kept = {}
+export const store = {
+  get(k) { try { return localStorage.getItem(k) } catch (e) { return kept[k] ?? null } },
+  set(k, v) { try { localStorage.setItem(k, v) } catch (e) { kept[k] = v } },
+}
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 export const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
 // try again after a refused request (the local server is single-threaded and sometimes drops one of a burst)

@@ -1,0 +1,452 @@
+// The guide (Arjun, 2026-11-01: "add an animated guy [to] guide you through ... when one person has done it make it so
+// that the same device never has to do it again unless they click tutorial", "make sure it syncs"). A cartoon of Arjun
+// walks the visitor round his room once: the lamp, his résumé on the wall, the laptop, AI Arjun's ring and the rest of
+// the desk, in his own voice (ElevenLabs, media/guide/), each line in a bubble as it is spoken, his mouth moving with
+// the voice and each thing lighting up as he names it.
+//   once    finished or skipped on a device, it is never offered there again (localStorage 'pc-tour'); the Tutorial pill in
+//           the room's corner, and Tutorial in the taskbar's tray, play it again. The first time the mini desktop opens he
+//           says one more line there ('pc-tour-desk').
+//   sync    the voice is Web Audio, decoded when the tour starts (from a press, so the browser lets it play), and each
+//           line's text, his mouth and the things he names all read the audio's own clock, so they cannot drift apart.
+//           media/guide/guide.json holds, per line, its text, where its pauses fall (chunks: [first char, end char, from s,
+//           to s], measured from the recording) and its loudness every 20 ms (env, 0..9). Muted, the same timeline runs
+//           silently, so the words and the mouth still keep time.
+//   motion  he walks from thing to thing (with reduced motion he is simply there); his bubble stands over his head, or,
+//           on a phone, along the foot of the screen.
+import { CONFIG, reduced, el, voice, setVoice, store, wait } from './config.js'
+import { line } from './icons.js'
+import { createArjun } from './guide/arjun.js'
+import * as room from './room.js'
+
+const DONE = 'pc-tour', DESK = 'pc-tour-desk'
+// where he stands for each line: an object of the room (its id), 'start' (left of the laptop) or 'pill' (by the Tutorial
+// button); live: only where the live room is (the résumé hangs only there); marks: words that light a thing as they are said
+// (each line's words are also in media/guide/guide.json, with its timing; these are what shows if that file cannot load)
+const STEPS = [
+  { clip: 'hello', at: 'start', pose: 'wave', text: "Hey, I'm Arjun! Welcome to my room. Everything on this desk is a button. Let me show you." },
+  { clip: 'lamp', at: 'themes', text: 'This lamp changes the light in the room. Give it a try!' },
+  { clip: 'resume', at: 'resume', live: true, text: 'My résumé hangs right here on the wall.' },
+  { clip: 'laptop', at: 'projects', text: 'Open my laptop to explore my projects, films, and how I build them.' },
+  { clip: 'ring', at: 'ai', text: 'This ring is AI Arjun. Ask it anything about me.' },
+  { clip: 'rest', at: 'ai', marks: [['card', 'how'], ['flowers', 'results'], ['glass', 'contact'], ['chair', 'about']], text: 'The card shows how I work, the flowers are my awards, the glass is for messages, and the chair is all about me.' },
+  { clip: 'bye', at: 'pill', pose: 'cheer', text: "That's it! Press Tutorial in the corner anytime to see this again. Have fun!" },
+]
+const ASK = 'First time here? Let me show you around my room. It only takes 30 seconds.'
+const DESK_TEXT = 'This is my desktop. Open any app on the taskbar, and the home button takes you back to my room.'
+const app = document.getElementById('app'), roomEl = document.getElementById('room')
+const phone = matchMedia(CONFIG.phone)
+
+let layer = null, posEl = null, arjun = null, bubble = null, pill = null, data = null, dataJob = null
+let ctx = null, gain = null, bufs = {}, decoding = null, ready = {}
+let at = null, run = null, token = 0, offered = false, asking = false, act = () => {}
+const lit = new Set()
+
+// ---- the layer, the bubble and the pill --------------------------------------------------------------------------
+function build() {
+  if (layer) return
+  layer = app.appendChild(el('div', 'gd'))
+  layer.hidden = true
+  posEl = layer.appendChild(el('div', 'gd-pos'))
+  arjun = createArjun()
+  posEl.appendChild(el('div', 'gd-anc')).appendChild(arjun.el)
+  bubble = layer.appendChild(el('div', 'gd-bub'))
+  bubble.setAttribute('role', 'dialog'); bubble.setAttribute('aria-label', 'Tour of the room')
+  bubble.innerHTML = `<p class="gd-say" aria-hidden="true"><span class="on"></span><span class="off"></span></p><p class="gd-sr" aria-live="polite"></p>` +
+    `<div class="gd-row"><span class="gd-n"></span><button type="button" class="gd-ic gd-mute"></button><span class="gd-sp"></span><span class="gd-btns"></span></div>` +
+    `<button type="button" class="gd-ic gd-x" aria-label="Skip the tour">${line('close', 16)}</button>`
+  bubble.addEventListener('click', (e) => {
+    const b = e.target.closest('button')
+    if (!b) return
+    if (b.classList.contains('gd-mute')) return setVoice(!voice())
+    if (b.classList.contains('gd-x')) return asking ? decline() : run ? finish() : closeTip()
+    const go = b.dataset.go
+    if (go === 'start') start(true)
+    else if (go === 'no') decline()
+    else if (go === 'next') step(run ? run.i + 1 : 0)
+    else if (go === 'back') step(run ? Math.max(0, run.i - 1) : 0)
+    else if (go === 'tip') closeTip()
+  })
+  bubble.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); asking ? decline() : run ? finish() : closeTip() }
+    else if (run && e.key === 'ArrowRight' && !e.target.closest('input')) step(run.i + 1)
+    else if (run && e.key === 'ArrowLeft' && !e.target.closest('input')) step(Math.max(0, run.i - 1))
+  })
+  addEventListener('voicechange', mute)
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || (!run && !asking) || layer.hidden || !document.getElementById('themes').hidden) return
+    e.stopPropagation(); e.preventDefault(); asking ? decline() : finish()
+  }, true)
+  addEventListener('resize', () => { if (!layer.hidden) reflow() })
+  addEventListener('room3d', () => setTimeout(settle, 60)); addEventListener('motionchange', () => setTimeout(settle, 60))      // the live room came or went under him
+  document.addEventListener('visibilitychange', () => { if (ctx) document.hidden ? ctx.suspend().catch(() => {}) : ctx.resume().catch(() => {}) })
+  mute()
+}
+function makePill() {
+  if (pill || !roomEl) return
+  pill = roomEl.appendChild(el('button', 'tour-pill'))
+  pill.type = 'button'
+  pill.setAttribute('aria-label', 'Tutorial: a tour of the room with Arjun')
+  const face = pill.appendChild(el('span', 'tp-face'))
+  const mini = createArjun()
+  mini.pose('idle')
+  face.appendChild(mini.el)
+  pill.appendChild(el('span', 'tp-t', 'Tutorial'))
+  pill.addEventListener('click', () => start(true))
+  // left alone a while in the room, the little Arjun in the pill waves now and then
+  let still = performance.now(), waved = 0
+  const moved = () => { still = performance.now() }
+  addEventListener('pointermove', moved, { passive: true }); addEventListener('keydown', moved, true); addEventListener('pointerdown', moved, true)
+  setInterval(() => {
+    const now = performance.now()
+    if (reduced() || document.hidden || pill.classList.contains('gd-busy') || !room.settled() || now - still < 25000 || now - waved < 42000) return
+    waved = now
+    mini.pose('wave'); pill.classList.add('tp-wave')
+    setTimeout(() => { mini.pose('idle'); pill.classList.remove('tp-wave') }, 2600)
+  }, 1000)
+}
+function mute() {
+  if (gain) gain.gain.value = voice() ? 1 : 0
+  if (!bubble) return
+  const b = bubble.querySelector('.gd-mute'), on = voice()
+  b.innerHTML = line(on ? 'soundOn' : 'mute', 16)
+  b.setAttribute('aria-label', on ? 'Mute his voice' : 'Turn his voice on'); b.setAttribute('aria-pressed', String(!on))
+}
+const W = () => layer.clientWidth, H = () => layer.clientHeight
+function size() {
+  const p = phone.matches, h = Math.min(H() * 0.2, W() * (p ? 0.3 : 0.16))
+  return Math.round(Math.min(p ? 118 : 172, Math.max(p ? 84 : 104, h)))
+}
+function place(p) {
+  posEl.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`
+  arjun.el.style.setProperty('--ga-h', p.h.toFixed(1) + 'px')
+}
+const aspect = () => { const r = arjun.el.getBoundingClientRect(); return r.height ? r.width / r.height : 0.62 }
+
+// where he stands for a step, the way he faces, and what he points at
+function spotFor(s) {
+  const w = W(), h = size(), gw = h * aspect(), pad = 10, floor = H() - (phone.matches ? 200 : 14)
+  let x, y, face = 1, aim = null
+  if (s.at === 'start') {
+    const a = room.anchor('projects')
+    y = a ? a.foot[1] : H() * 0.75; x = a ? Math.min(w * 0.36, a.x0 - gw * 0.4) : w * 0.3      // beside the laptop, never over its screen
+  } else if (s.at === 'pill') {
+    const r = pill && pill.getBoundingClientRect(), o = layer.getBoundingClientRect()
+    x = r ? r.right - o.left + gw * 0.5 + 18 : w * 0.2; y = r ? r.bottom - o.top : floor; face = -1
+    if (r) aim = [r.left - o.left + r.width / 2, r.top - o.top + r.height / 2]
+  } else {
+    const a = room.anchor(s.at)
+    if (!a) return null
+    const right = a.cx > w / 2
+    x = right ? a.x0 - gw * 0.5 - pad : a.x1 + gw * 0.5 + pad; y = a.foot[1]; face = right ? 1 : -1
+    aim = [a.cx, Math.min(a.cy, a.y0 + (a.y1 - a.y0) * 0.35)]
+  }
+  x = Math.min(w - gw / 2 - 8, Math.max(gw / 2 + 8, x))
+  y = Math.min(floor, Math.max(h + 24, y))
+  return { x, y, h, face, aim }
+}
+// the arm's angle (degrees above level, toward the way he faces) from his shoulder to a point
+function aimAt(p, to) {
+  if (!to) return 0
+  const sx = p.x + p.face * p.h * aspect() * 0.18, sy = p.y - p.h * 0.6
+  return Math.max(-35, Math.min(80, Math.atan2(sy - to[1], Math.abs(to[0] - sx)) * 180 / Math.PI))
+}
+
+async function walkTo(p, my) {
+  if (!at || reduced()) {
+    place(p); at = p
+    layer.classList.remove('gd-in'); void layer.offsetWidth; layer.classList.add('gd-in')
+    return
+  }
+  const from = at, d = Math.hypot(p.x - from.x, p.y - from.y)
+  if (d < 6) { place(p); at = p; return }
+  arjun.face(p.x >= from.x ? 1 : -1); arjun.point(0); arjun.pose('walk')
+  const ms = Math.min(1600, Math.max(450, d / 0.42)), t0 = performance.now()
+  await new Promise((done) => {
+    const f = (now) => {
+      if (my !== token) return done()
+      const k = Math.min(1, (now - t0) / ms), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2
+      place({ x: from.x + (p.x - from.x) * e, y: from.y + (p.y - from.y) * e, h: from.h + (p.h - from.h) * e })
+      k < 1 ? requestAnimationFrame(f) : done()
+    }
+    requestAnimationFrame(f)
+  })
+  if (my === token) at = p
+}
+
+// the bubble: over his head (on a phone, along the foot of the screen), its tail toward him
+function showBubble(html, btns, n) {
+  bubble.querySelector('.gd-btns').innerHTML = btns
+  bubble.querySelector('.gd-n').textContent = n || ''
+  bubble.classList.toggle('gd-ask', !n)
+  say(html, html.length)
+  bubble.hidden = false
+  reflowBubble()
+  bubble.classList.remove('gd-on'); void bubble.offsetWidth; bubble.classList.add('gd-on')
+}
+function reflowBubble() {
+  if (!at || bubble.hidden) return
+  const w = W(), h = H(), bw = bubble.offsetWidth, bh = bubble.offsetHeight
+  bubble.classList.toggle('gd-dock', phone.matches)
+  if (phone.matches) { bubble.style.transform = `translate(${Math.round((w - bw) / 2)}px, ${Math.round(h - bh - 18)}px)`; return }
+  const headY = at.y - at.h - 14, below = headY - bh < 10
+  const x = Math.min(w - bw - 10, Math.max(10, at.x - bw / 2)), y = below ? Math.min(h - bh - 10, at.y + 12) : headY - bh
+  bubble.classList.toggle('gd-below', below)
+  bubble.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`
+  bubble.style.setProperty('--tail', Math.round(Math.min(bw - 24, Math.max(24, at.x - x))) + 'px')
+}
+function reflow() {
+  const s = run ? steps()[run.i] : asking ? STEPS[0] : null
+  if (s) { const p = spotFor(s); if (p) { place(p); at = p; arjun.face(p.face); arjun.point(aimAt(p, p.aim)) } }
+  reflowBubble()
+}
+// the text: what has been said in full colour, the rest held in place (so the bubble never changes size) but unseen
+function say(text, n) {
+  const p = bubble.querySelector('.gd-say')
+  p.firstChild.textContent = text.slice(0, n); p.lastChild.textContent = text.slice(n)
+  const sr = bubble.querySelector('.gd-sr')
+  if (sr.textContent !== text) sr.textContent = text
+}
+
+// ---- the voice -----------------------------------------------------------------------------------------------
+const loadData = () => (dataJob ||= fetch('media/guide/guide.json').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => (data = d)))
+// from a press: the audio context starts inside the press (as every browser asks), then the clips are fetched and decoded
+function unlock() {
+  if (!ctx) {
+    const A = window.AudioContext || window.webkitAudioContext
+    if (A) { try { ctx = new A(); gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.value = voice() ? 1 : 0 } catch (e) { ctx = null } }
+  }
+  if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
+  // fetched and decoded one after another in the order he says them, so the first line is ready first
+  decoding ||= loadData().then(async (d) => {
+    if (!d || !ctx) return
+    const order = [...new Set(STEPS.map((s) => s.clip).concat(Object.keys(d.clips)))].filter((k) => d.clips[k])
+    let chain = Promise.resolve()
+    for (const k of order) {
+      ready[k] = chain = chain.then(() => fetch(d.clips[k].src)).then((r) => r.arrayBuffer())
+        .then((b) => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no))).then((buf) => { bufs[k] = buf }).catch(() => {})
+    }
+    await chain
+  })
+  return decoding
+}
+// a line's voice, if it arrives soon enough: the words never wait long for it
+const voiceFor = (k, ms) => Promise.race([ready[k] || Promise.resolve(), wait(ms)])
+// where in the text the voice is at t seconds, from the chunks (between two chunks it rests at the end of the first)
+function charsAt(c, t) {
+  let n = 0
+  for (const [a, b, t0, t1] of c.chunks) { if (t >= t1) n = b; else { if (t > t0) n = a + Math.round((b - a) * (t - t0) / (t1 - t0)); break } }
+  return t >= c.dur ? c.text.length : n
+}
+function timeAt(c, i) { for (const [a, b, t0, t1] of c.chunks) if (i < b) return i <= a ? t0 : t0 + (t1 - t0) * (i - a) / (b - a); return c.dur }
+const envAt = (c, t) => { const i = Math.floor(t * (data ? data.fps : 50)); return c.env && i >= 0 && i < c.env.length ? +c.env[i] / 9 : 0 }
+
+// one line: the voice (or its silent timeline), the text, the mouth and the marks, all off one clock. Resolves when it ends.
+function speak(name, words, my, onMark) {
+  const c = data && data.clips[name]
+  const text = c ? c.text : words, dur = c ? c.dur : text.length * 0.062 + 0.5
+  const clip = c || { text, dur, chunks: [[0, text.length, 0.15, dur - 0.3]], env: null }
+  let src = null, t0 = 0
+  const started = performance.now()
+  if (ctx && bufs[name] && ctx.state === 'running') {
+    src = ctx.createBufferSource(); src.buffer = bufs[name]; src.connect(gain)
+    t0 = ctx.currentTime + 0.03; src.start(t0)
+  }
+  const clock = () => (src ? ctx.currentTime - t0 : (performance.now() - started) / 1000)
+  run.stop = () => { if (src) { try { src.stop() } catch (e) { /* already ended */ } src = null } }
+  let mouth = 0, mark = -1
+  return new Promise((done) => {
+    const f = () => {
+      if (my !== token) return done(false)
+      const t = clock()
+      say(text, reduced() ? text.length : charsAt(clip, Math.max(0, t)))      // with reduced motion the words are simply there
+      // the mouth follows the voice's loudness (without a recording: a talking rhythm while the words come)
+      const v = clip.env ? envAt(clip, t) : t < clip.chunks[0][3] ? 0.35 + 0.35 * Math.sin(t * 17) * Math.sin(t * 5.3) : 0
+      mouth += (v - mouth) * 0.55
+      arjun.mouth(Math.max(0, Math.min(1, (mouth - 0.06) * 1.5)))
+      if (onMark) { const m = onMark.times.findLastIndex((x) => t >= x); if (m !== mark) { mark = m; onMark.go(m) } }
+      if (t < dur) requestAnimationFrame(f); else { arjun.mouth(0); say(text, text.length); done(true) }
+    }
+    requestAnimationFrame(f)
+  })
+}
+
+// ---- the tour ------------------------------------------------------------------------------------------------
+function light(id, on) { if (on === lit.has(id)) return; on ? lit.add(id) : lit.delete(id); room.highlight(id, on) }
+function unlightAll() { for (const id of [...lit]) light(id, false) }
+const steps = () => STEPS.filter((s) => !s.live || room.live())
+
+function open() {
+  build(); makePill()
+  layer.hidden = false
+  layer.classList.add('gd-show')
+  if (pill) pill.classList.add('gd-busy')
+}
+// the first visit: he walks in, waves, and asks
+export async function offer() {
+  if (store.get(DONE) === '1' || run || asking || offered) return
+  offered = true
+  await wait(1700)
+  if (!room.settled() || run || app.dataset.place !== 'room' || document.getElementById('boot')) { offered = false; return }
+  open()
+  asking = true
+  const my = ++token
+  loadData().then((d) => { if (d && d.clips.hello) fetch(d.clips.hello.src).catch(() => {}) })      // his first line is in the cache before he is asked to say it
+  const p = spotFor(STEPS[0])
+  if (!p) { asking = false; hide(); return }
+  at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }                    // in from the left edge
+  if (at) place(at)
+  room.quiet(true)
+  await walkTo(p, my)
+  if (my !== token) return
+  arjun.face(1); arjun.pose('wave')
+  showBubble(ASK, `<button type="button" class="gd-b" data-go="no">No thanks</button><button type="button" class="gd-b gd-p" data-go="start">Show me around</button>`)
+}
+function decline() {
+  asking = false
+  store.set(DONE, '1')
+  leaveToPill(bubble.contains(document.activeElement))
+}
+// the tour itself; fromPress: started by a press (the Tutorial pill, Show me around), so the voice may play
+export async function start(fromPress) {
+  build(); makePill()
+  if (fromPress) unlock()
+  asking = false
+  if (run) run.stop && run.stop()
+  room.quiet(true)
+  open()
+  run = { i: -1, stop: null }
+  if (!at) { const p = spotFor(STEPS[0]); if (p) { at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }; if (at) place(at) } }
+  await Promise.race([loadData(), wait(1500)])
+  await voiceFor('hello', 2000)
+  if (run) step(0)
+}
+async function step(i) {
+  if (!run) return
+  const list = steps()
+  if (i >= list.length) return finish(true)
+  const my = ++token
+  if (run.stop) run.stop()
+  unlightAll()
+  run.i = i
+  const s = list[i], n = `${i + 1} / ${list.length}`
+  bubble.hidden = true
+  const p = spotFor(s)
+  if (!p) return step(i + 1)
+  await walkTo(p, my)
+  if (my !== token) return
+  arjun.face(p.face)
+  arjun.pose(s.pose || (p.aim ? 'point' : 'idle'))
+  arjun.point(aimAt(p, p.aim))
+  if (s.at !== 'start' && s.at !== 'pill') light(s.at, true)
+  const btns = (i > 0 ? `<button type="button" class="gd-b" data-go="back">Back</button>` : '') + `<button type="button" class="gd-b gd-p" data-go="next">${i === list.length - 1 ? 'Done' : 'Next'}</button>`
+  const c = data && data.clips[s.clip], words = c ? c.text : s.text
+  showBubble(words, btns, n)
+  say(words, 0)
+  if (bubble.contains(document.activeElement) || i === 0) bubble.querySelector('[data-go="next"]').focus({ preventScroll: true })
+  let marks = null
+  if (s.marks) {
+    const timed = c || { text: words, dur: words.length * 0.062 + 0.5, chunks: [[0, words.length, 0.15, words.length * 0.062 + 0.2]] }
+    const times = s.marks.map(([word]) => timeAt(timed, Math.max(0, words.indexOf(word))))
+    marks = { times, go: (m) => {
+      unlightAll()
+      if (m < 0) return
+      const id = s.marks[m][1], a = room.anchor(id)
+      light(id, true)
+      if (a) { const face = a.cx >= at.x ? 1 : -1; arjun.face(face); arjun.pose('point'); arjun.point(aimAt({ ...at, face }, [a.cx, a.cy])) }
+    } }
+  }
+  await voiceFor(s.clip, 1200)
+  if (my !== token) return
+  const ended = await speak(s.clip, words, my, marks)
+  if (!ended || my !== token) return
+  await wait(s.at === 'pill' ? 600 : 1100)
+  if (my === token && run) step(i + 1)
+}
+async function finish() {
+  if (!run) return
+  if (run.stop) run.stop()
+  run = null
+  store.set(DONE, '1')
+  unlightAll()
+  leaveToPill(bubble.contains(document.activeElement))
+}
+// he walks to the Tutorial pill and goes into it: that is where he waits
+async function leaveToPill(keys) {
+  const my = ++token
+  if (keys && pill) pill.focus({ preventScroll: true })      // the keyboard waits on the pill he goes into
+  bubble.hidden = true
+  arjun.mouth(0)
+  const p = pill && app.dataset.place === 'room' ? spotFor({ at: 'pill' }) : null
+  if (p && !reduced()) {
+    await walkTo(p, my)
+    if (my !== token) return
+    arjun.face(-1); arjun.pose('wave')
+    await wait(500)
+    if (my !== token) return
+    layer.classList.add('gd-into')
+    await wait(380)
+    if (my !== token) return
+  }
+  hide()
+  if (pill) { pill.classList.remove('gd-busy'); pill.classList.remove('tp-pop'); void pill.offsetWidth; pill.classList.add('tp-pop') }
+}
+function hide() {
+  if (!layer) return
+  token++
+  if (run && run.stop) run.stop()
+  run = null; asking = false; at = null
+  unlightAll()
+  room.quiet(false)
+  layer.hidden = true
+  layer.classList.remove('gd-show', 'gd-into', 'gd-in')
+  bubble.hidden = true
+  if (pill) pill.classList.remove('gd-busy')
+}
+
+// the camera moved under him (a new light from the lamp travels the film's path): he stands by his thing again
+export function settle() { if (layer && !layer.hidden && (run || asking)) reflow() }
+// a press that will start the tour after a change of place (Tutorial in the taskbar): the voice is let in now, inside the press
+export function prime() { build(); unlock() }
+
+// ---- elsewhere ---------------------------------------------------------------------------------------------------
+// the visitor is going somewhere else: a running tour counts as seen; an unanswered question is asked again next time
+export function away() {
+  if (run) { store.set(DONE, '1'); hide() } else if (asking) { offered = false; hide() } else if (layer && !layer.hidden && !tip) hide()
+}
+// the room is showing again: the pill is there; a first visit that has not answered is asked
+export function home() { makePill(); if (tip) closeTip(); offer() }
+export const busy = () => !!run || asking
+// the first time the mini desktop opens: one line about it, by the bottom left corner
+let tip = false
+export async function deskTip() {
+  if (store.get(DESK) === '1' || run || asking || tip) return
+  tip = true
+  await wait(reduced() ? 300 : 1300)
+  if (!tip || app.dataset.place !== 'desktop') { tip = false; return }
+  open()
+  const my = ++token
+  const h = size(), gw = h * aspect(), bar = phone.matches ? 230 : document.querySelector('#desktop.onlap') ? 10 : 56      // on a phone his bubble runs along the foot of the screen: he stands above it
+  const p = { x: gw / 2 + 18, y: H() - bar, h, face: 1, aim: null }
+  at = reduced() ? null : { x: -h, y: p.y, h }
+  if (at) place(at)
+  await walkTo(p, my)
+  if (my !== token) return
+  arjun.face(1); arjun.pose('wave')
+  showBubble(DESK_TEXT, `<button type="button" class="gd-b gd-p" data-go="tip">Got it</button>`)
+  run = { i: -1, stop: null }
+  await loadData()
+  if (my !== token) return
+  const ended = await speak('desk', DESK_TEXT, my)
+  if (ended && my === token) { arjun.pose('idle'); run = null }
+}
+function closeTip() {
+  tip = false
+  store.set(DESK, '1')
+  hide()
+}
+// leaving the desktop with the tip still up: it has been seen
+export function deskAway() { if (tip) closeTip() }
+// Tutorial from the taskbar's tray (main.js): the next desktop visit gets its tip again too
+export function tutorial() { store.set(DESK, ''); start(true) }
+export function init(onAct) { act = onAct }
+window.__guide = { state: () => ({ audio: ctx ? ctx.state : 'none', voices: Object.keys(bufs), step: run ? run.i : null, asking, voice: voice() }) }      // for site/tools checks only

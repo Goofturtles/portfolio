@@ -97,6 +97,13 @@
   transition: background-color .15s ease, box-shadow .15s ease; }
 .start nav button:hover { background: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08), 0 2px 4px rgba(0, 0, 0, .06); }
 .start nav button:active { background: rgba(255, 255, 255, .5); }
+/* left alone, the tiles catch a sheen now and then: a soft band of light runs across them in turn, then a long rest
+   (a transform only, so nothing is painted again; reduced motion leaves it resting off the tile) */
+.start nav button { position: relative; overflow: hidden; isolation: isolate; }
+.start nav button::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .55) 50%, transparent 65%);
+  transform: translateX(130%); animation: tile-sheen 11s cubic-bezier(.4, 0, .2, 1) calc(4s + var(--i, 0) * .14s) infinite; }
+.start.dark nav button::after { background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .1) 50%, transparent 65%); }
+@keyframes tile-sheen { 0% { transform: translateX(-130%); } 11%, 100% { transform: translateX(130%); } }
 .start.dark nav button { background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 .start.dark nav button:hover { background: rgba(255, 255, 255, .09); }
 .start nav button > :first-child { margin-bottom: 8px; }

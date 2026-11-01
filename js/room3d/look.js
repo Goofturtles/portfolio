@@ -163,15 +163,33 @@ void main() { FRAME
   frag = vec4(c * (1. - uBloomPass), a); }`,
 
   // a lamp shade, the tube light, the ring: the baked surface lifted by its own light; alone in the bloom's picture
-  glow: `uniform vec3 uGlowColor; uniform float uGlow;
+  // uPulse (the ring only, ambient.js): x the angle the light has reached round the ring, y how strong it is; the
+  // ring's middle and its plane (uRingC, uRingA, uRingB) come from the ring itself every frame, as it turns
+  glow: `uniform vec3 uGlowColor; uniform float uGlow; uniform vec4 uPulse; uniform vec3 uRingC, uRingA, uRingB;
 void main() { cut(); FRAME
   vec3 g = uGlowColor * uGlow;
 #ifdef UNBAKED
   g *= vec3(.84, .83, 1.);                                                        // until the atlas brings the shade's own colour: the film's lavender
 #endif
   vec3 c = hoverLight(base(N), N, V);
+#ifdef UNBAKED
   c += g * (.34 + .16 * pow(max(dot(N, V), 0.), 2.)) * (1. - min(c, vec3(1.)));      // lifted toward its own light, never past white
-  frag = vec4(mix(c, c * min(uGlow, 1.2) * mix(vec3(1.), g / max(uGlow, .001), .5), uBloomPass), far()); }`,
+#else
+  c += g * (.07 + .05 * pow(max(dot(N, V), 0.), 2.)) * (1. - min(c, vec3(1.)));      // the atlas already holds the lit shade: only a breath of lift, so it stays the film's lavender and its word stays legible
+#endif
+  vec3 halo = c * min(uGlow, 1.2) * mix(vec3(1.), g / max(uGlow, .001), .5);
+#ifndef UNBAKED
+  halo *= .4;                                                                     // a baked shade is near white already: its halo is a soft ring about it, never a white flare (film/research/P2.md)
+#endif
+  if (uPulse.y > .001) {                                                          // AI Arjun's ring listening: a cool light runs round it, a soft tail behind
+    vec3 d = vW - uRingC;
+    float dd = mod(uPulse.x - atan(dot(d, uRingB), dot(d, uRingA)) + 3.14159265, 6.28318531) - 3.14159265;
+    float k = (exp(-dd * dd / .05) + (dd > 0. ? .38 * exp(-dd / .5) : 0.)) * uPulse.y;
+    vec3 tint = vec3(.3, .48, 1.);
+    c = mix(c, c * tint * .9 + tint * .3, min(k, 1.));                           // a white ring: the light shows as its colour, not as more white
+    halo += tint * k * 3.;
+  }
+  frag = vec4(mix(c, halo, uBloomPass), far()); }`,
 
   // the laptop's screen: the site's own desktop wallpaper, moving exactly as js/bloom.js moves it, so the desktop
   // that takes over at the end of the dive is the same picture in the same place
@@ -235,9 +253,13 @@ const hex = (h) => {                                              // a backgroun
 
 // How strongly something glows in a theme: the json's value under one of its names (material, mesh, node), else the
 // level the json gives by what it is ("lamp_level" for anything with "lamp" in its name), else dark.
+// (The export of 2026-10 keys "glow" by role, each an object { node, emits, strength }: only plain numbers are read there.)
 function level(theme, names) {
-  for (const n of names) if (theme.glow[n] != null) return +theme.glow[n]
-  for (const [key, v] of Object.entries(theme.levels)) { const what = key.split('_')[0].toLowerCase(); if (names.some((n) => String(n).toLowerCase().includes(what))) return Math.min(1.5, +v) }
+  for (const n of names) if (typeof theme.glow[n] === 'number') return theme.glow[n]
+  for (const [key, v] of Object.entries(theme.levels)) {
+    const what = key.split('_')[0].toLowerCase()
+    if (Number.isFinite(+v) && names.some((n) => String(n).toLowerCase().includes(what))) return Math.min(1.5, +v)
+  }
   return 0
 }
 
@@ -321,7 +343,7 @@ export function createLook(renderer, contract, small) {
   function fitOf(id) { const f = (contract.mirror.fit || {})[id] || {}; return [f.atlas ?? 0.65, f.mirror ?? 0.58] }
   function setMix(k) {
     U.uMix.value = k
-    for (const g of glows) g.u.value = g.a + (g.b - g.a) * k
+    for (const g of glows) { g.base = g.a + (g.b - g.a) * k; g.u.value = g.base * g.k }
     if (pair[0]) { const c = pair[0].bg.clone().lerp(pair[1].bg, k); renderer.setClearColor(new THREE.Color().setRGB(c.x, c.y, c.z, THREE.LinearSRGBColorSpace), 0) }      // alpha 0: where nothing is, is as far as can be (see far())
   }
 
@@ -355,8 +377,12 @@ export function createLook(renderer, contract, small) {
       if (kind === 'glow') {
         const e = src.emissive && src.emissive.r + src.emissive.g + src.emissive.b > 0 ? src.emissive : src.color || new THREE.Color(1, 1, 1)
         u.uGlowColor = { value: display(e) }; u.uGlow = { value: 0 }
+        u.uPulse = { value: new THREE.Vector4() }; u.uRingC = { value: new THREE.Vector3() }; u.uRingA = { value: new THREE.Vector3(1, 0, 0) }; u.uRingB = { value: new THREE.Vector3(0, 1, 0) }
         const names = [told.src, src.name, mesh.name, mesh.parent && mesh.parent.name, group.id && 'obj_' + group.id, group.id].filter((n) => n != null)
-        glows.push({ u: u.uGlow, a: 0, b: 0, of: (t) => level(t, names) })
+        const is = (w) => names.some((n) => String(n).toLowerCase().includes(w))
+        // the lights breathe (ambient.js): the lamp slowly, the tube a little quicker and out of step with it
+        const breath = is('lamp') ? { amp: 0.09, period: 7.4, phase: 0 } : is('tube') ? { amp: 0.12, period: 5.3, phase: 2.1 } : { amp: 0, period: 1, phase: 0 }
+        glows.push({ u: u.uGlow, a: 0, b: 0, base: 0, k: 1, ...breath, of: (t) => level(t, names) })
       }
       const m = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: HEAD + FRAG[kind], uniforms: u, defines, side: src.side })
       if (kind === 'glass') {                                    // laid over what is behind it; the distance beside the colour stays that of what is behind
@@ -379,5 +405,15 @@ export function createLook(renderer, contract, small) {
     U.uScrR.value.copy(f.right).multiplyScalar(2 / f.width); U.uScrU.value.copy(f.up).multiplyScalar(2 / f.height)
   }
 
-  return { U, size, loadTheme, setPair, setMix, dress, picture, seeScreen, seeBall: (centre, radius) => U.uBall.value.set(centre.x, centre.y, centre.z, radius), pair: () => pair, materials: () => [...made.values()] }
+  // the lit things breathe: t in seconds; each glow rises and falls about its theme's level on its own slow beat
+  function breathe(t) {
+    for (const g of glows) {
+      if (!g.amp) continue
+      const w = 2 * Math.PI * t / g.period + g.phase
+      g.k = 1 + g.amp * Math.sin(w) * (0.75 + 0.25 * Math.sin(w * 0.27 + 1.1))
+      g.u.value = g.base * g.k
+    }
+  }
+
+  return { U, size, loadTheme, setPair, setMix, breathe, dress, picture, seeScreen, seeBall: (centre, radius) => U.uBall.value.set(centre.x, centre.y, centre.z, radius), pair: () => pair, materials: () => [...made.values()] }
 }

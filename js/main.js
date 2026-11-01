@@ -1,12 +1,13 @@
 // Start-up, and every change of place. One stage, no page scroll:
 //   room  --chip-->  [chips lift, camera pushes in]  tunnel  [the place settles in]  -->  mini desktop | pages
 // The address keeps the place (#projects, #ai-arjun, #pages-how ...), so Back works and a place can be linked to.
-import { reduced, wait, retry } from './config.js'
+import { reduced, wait, retry, voice, setVoice } from './config.js'
 import { media, loadManifest, themes, themeInfo, thumbOf, retryFailedMedia } from './media.js'
 import { apps } from './apps.js'
 import { line, pix } from './icons.js'
 import * as room from './room.js'
 import * as tunnel from './tunnel.js'
+import * as guide from './guide.js'
 
 // kit.js draws a film view into #stage when the page finishes parsing; apps.js loads it after that has happened
 const parsed = document.readyState === 'complete' ? Promise.resolve() : new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }))
@@ -24,7 +25,7 @@ const CHIP = { projects: 'portfolio', app: 'portfolio', ai: 'ai-arjun', how: 'pa
 const APP = { portfolio: 'portfolio', projects: 'projects', films: 'films', how: 'how-i-work', results: 'results', about: 'about', contact: 'contact', ai: 'ai-arjun' }
 const TITLE = { room: 'Arjun Sharma', desktop: 'Portfolio', pages: 'Pages' }
 
-let place = 'room', busy = false, sound = false, pending = null
+let place = 'room', busy = false, pending = null
 // desktop.js and pages.js (and what they import) are fetched the first time they are needed
 const loading = { room: Promise.resolve(room) }, loaded = { room }
 const load = (name) => (loading[name] ||= retry((i) => import(`./${name}.js${i > 1 ? '?try=' + i : ''}`)).then((m) => { m.init(act, setTitle); loaded[name] = m; return m }))
@@ -42,7 +43,8 @@ function toast(text) {
 // everything that can be asked for by name: a taskbar icon, a link on a sheet, a project in the document
 function act(id, arg) {
   if (id === 'themes') return togglePicker()
-  if (id === 'sound') { sound = !sound; return toast(sound ? 'Sound is on. There is no soundtrack yet.' : 'Sound is off.') }
+  if (id === 'sound') { setVoice(!voice()); return toast(voice() ? "Sound is on: Arjun's guide talks." : 'Sound is off.') }
+  if (id === 'tour') return tutorial()
   if (id === 'home') return go('home')
   if (id === 'toast') return toast(arg)
   if (id === 'pages') return go(arg === 'results' ? 'pages-results' : 'pages-how')
@@ -57,6 +59,8 @@ async function go(route, { arg, spot, push = true } = {}) {
   if (next === place) { if (next !== 'room') (await load(next)).show(what, arg); return }
   busy = true
   showPicker(false)
+  guide.away()                                               // a tour in the room ends (it has been seen); his tip on the desktop has been read
+  if (place === 'desktop') guide.deskAway()
   try {
     const from = await load(place)
     tagEl.hidden = true
@@ -66,6 +70,7 @@ async function go(route, { arg, spot, push = true } = {}) {
       hud.querySelector('.back').hidden = true
       setTitle('')
       await Promise.all([gone, room.enter(true)])
+      guide.home()                                             // the Tutorial pill; a first visit that never answered him is asked again
     } else {
       const ready = load(next).then((m) => m.prepare())
       const left = from.leave(spot, next)                      // the room: the zoom into the laptop (js/room.js); it resolves when the cross-fade may start
@@ -74,11 +79,19 @@ async function go(route, { arg, spot, push = true } = {}) {
       hud.querySelector('.back').hidden = false
       setTitle('')
       await (await load(next)).enter(what, arg)
+      if (next === 'desktop') guide.deskTip()                  // the first time on the desktop: one line from him about it
     }
     showTag()
     if (!app.contains(document.activeElement) || document.activeElement.closest('[hidden]')) document.getElementById(next).focus({ preventScroll: true })   // the keyboard follows to the new place
   } finally { busy = false }
   if (pending) { const to = pending; pending = null; if ((location.hash.slice(1) || 'home') === to) go(to, { push: false }) }      // the address moved while this flight was in the air
+}
+
+// the Tutorial (the pill in the room, Tutorial in the taskbar's tray): back to the room first, then the tour
+async function tutorial() {
+  guide.prime()
+  if (place !== 'room') { await go('home'); await wait(reduced() ? 0 : 500) }
+  if (place === 'room') guide.tutorial()
 }
 
 // ---- themes ------------------------------------------------------------------------------------------
@@ -115,6 +128,7 @@ async function setTheme(id) {
   markTheme()
   for (const name of ['desktop', 'pages']) if (loaded[name]) loaded[name].setTheme()
   await room.relight(id)                                     // the room plays the re-light (also behind another place, so it is right on return)
+  guide.settle()
   showTag()
 }
 
@@ -135,7 +149,8 @@ async function start() {
   showTag()
   const route = location.hash.slice(1)
   const arrived = room.enter()
-  if (ROUTES[route] && route !== 'home') { await arrived; go(route, { push: false }) }
+  guide.init(act)
+  if (ROUTES[route] && route !== 'home') { await arrived; go(route, { push: false }) } else arrived.then(() => guide.offer())      // a first visit: the guide asks to show the room round
   hud.querySelector('.back').addEventListener('click', () => go('home'))
   addEventListener('popstate', () => go(location.hash.slice(1) || 'home', { push: false }))
   // a press anywhere outside the theme picker closes it (not on what opens it: that press toggles it)

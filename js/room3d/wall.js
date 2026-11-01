@@ -46,7 +46,7 @@ const ZF = OFF + DEPTH, ZG = ZF - 0.006, ZM = ZG - 0.0025, MAT = 0.0016, TUCK = 
 // (the paper's own white, 0.88, comes out a shade under the plaster too)
 const PAINT = [0.042, 0.038, 0.05], BOARD = [0.625, 0.612, 0.594], PAPER = 0.7
 const MARGIN = 0.3                                              // how far round a frame its shadow and its light reach on the wall
-const TILT = THREE.MathUtils.degToRad(3), BREATH = 6.5           // the photo pointed at: leans this far; its light breathes once in this many seconds
+const TILT = THREE.MathUtils.degToRad(3), BREATH = 4.8, GLINT = 9      // the photo pointed at: leans this far; its light breathes once in this many seconds; a glint crosses its glass this often
 const TIP = ['Résumé', 'Click to open his résumé']
 // the lamp's word: how high on the shade (share of its height from the foot), how big (metres), its ink as a filter
 const LAMP_WORD = { at: 0.5, w: 0.054, h: 0.019, ink: [0.74, 0.71, 0.83] }
@@ -167,14 +167,15 @@ const GLASS_VERT = `
 precision highp float;
 uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
 in vec3 position, normal;
-out vec3 vW, vN;
-void main() { vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = mat3(modelMatrix) * normal; gl_Position = projectionMatrix * viewMatrix * w; }`
+out vec3 vW, vN; out vec2 vL;
+void main() { vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = mat3(modelMatrix) * normal; vL = position.xy; gl_Position = projectionMatrix * viewMatrix * w; }`
 const GLASS_FRAG = `
 precision highp float;
 uniform vec3 cameraPosition;
 uniform sampler2D uEnvA, uEnvB;
-uniform float uMix, uEnvYaw, uHover, uBloomPass;
-in vec3 vW, vN;
+uniform float uMix, uEnvYaw, uHover, uBloomPass, uGlint;
+uniform vec2 uHalf;
+in vec3 vW, vN; in vec2 vL;
 out vec4 frag;
 vec3 env(vec3 d, float lod) {
   vec2 e = vec2(atan(d.x, -d.z) / 6.28318530718 + .5 + uEnvYaw, .5 - asin(clamp(d.y, -1., 1.)) / 3.14159265359);
@@ -184,7 +185,8 @@ void main() {
   vec3 N = normalize(vN), V = normalize(cameraPosition - vW);
   float f = .08 + .92 * pow(1. - abs(dot(N, V)), 5.);                  // picture glass: two faces, about 8 % straight on
   vec3 e = env(reflect(-V, N), .8);
-  frag = vec4((e * f + uHover * .012) * (1. - uBloomPass), f);
+  float s = (vL.y / uHalf.y - vL.x / uHalf.x) * .5 - uGlint, g = .3 * exp(-s * s / .006);      // the résumé's glass: now and then a glint slides across it
+  frag = vec4((e * f + uHover * .012 + g) * (1. - uBloomPass), max(f, g));
 }`
 
 // each frame's shadow and light on the wall: a patch laid on the wall itself. Its colour is added and its alpha
@@ -368,7 +370,8 @@ export function createWall(scene, look, things, contract, camera) {
       uniforms: { ...shared, ...wallMap, ...hover, uMap: { value: blank }, uPlate: { value: blank }, uPaint: { value: new THREE.Vector3(...PAINT) }, uBoard: { value: new THREE.Vector3(...BOARD) }, uPaper: { value: PAPER },
         uInner: { value: p.opens ? 1 : 0 }, uOpen: { value: new THREE.Vector2(...geo.open) }, uWin: { value: p.win ? new THREE.Vector3(p.win[0] / 2, p.win[1] / 2, p.up) : new THREE.Vector3() },
         uPlateBox: { value: p.plate ? new THREE.Vector4(0, p.plate[2], p.plate[0], p.plate[1]) : new THREE.Vector4(0, 0, 1, 1) } } })
-    const glass = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: GLASS_VERT, fragmentShader: GLASS_FRAG, uniforms: { ...shared, uHover: hover.uHover },
+    const glint = { value: -9 }
+    const glass = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: GLASS_VERT, fragmentShader: GLASS_FRAG, uniforms: { ...shared, uHover: hover.uHover, uGlint: glint, uHalf: { value: new THREE.Vector2(geo.open[0] + 0.002, geo.open[1] + 0.002) } },
       transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor })
     const node = new THREE.Group()
     node.name = 'wall_' + p.id
@@ -405,7 +408,7 @@ export function createWall(scene, look, things, contract, camera) {
 
     loads.push(look.picture(DIR + p.src).then((tex) => { art.uniforms.uMap.value = tex }))
     if (p.plate) loads.push(plateTex.then((tex) => { if (tex) art.uniforms.uPlate.value = tex }))
-    const piece = { id: p.id, node, art: artMesh, glass: glassMesh, patch, hover, glowK, lift, at, normal: N, size: [p.w, p.h], rest: node.matrix.clone(), opens: p.opens || null }
+    const piece = { id: p.id, node, art: artMesh, glass: glassMesh, patch, hover, glowK, lift, glint, at, normal: N, size: [p.w, p.h], rest: node.matrix.clone(), opens: p.opens || null }
     made.push(piece)
     if (p.opens) photo = piece
   }
@@ -526,7 +529,11 @@ export function createWall(scene, look, things, contract, camera) {
     time += dt
     if (!photo) return
     const h = rec ? rec.hover.x : 0
-    photo.glowK.value = 1 + 0.05 * Math.sin((time * Math.PI * 2) / BREATH) + 0.4 * h
+    // its light breathes clearly enough to be noticed (it is the one picture that opens), and every GLINT seconds a
+    // glint slides across its glass, top left to bottom right
+    photo.glowK.value = 1 + 0.2 * Math.pow(0.5 - 0.5 * Math.cos((time * Math.PI * 2) / BREATH), 1.4) + 0.4 * h
+    const g = (time % GLINT) / 1.1
+    photo.glint.value = g < 1 ? 1.5 - 3 * g * g * (3 - 2 * g) : -9
     photo.lift.value = h
     if (Math.abs(h - leaned) > 1e-4) {                              // about its foot: the top comes off the wall toward the eye
       leaned = h

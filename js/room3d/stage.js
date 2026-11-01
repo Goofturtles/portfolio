@@ -6,6 +6,7 @@
 // desk top), post.js (glow), rig.js (the camera), things.js (the objects), input.js (hand, finger, tilt).
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'      // room.glb is meshopt-compressed (gltfpack -c -noq -kn -km -ke: 14.8 MB to 2.4 MB, the same vertices)
 import { retry } from '../config.js'
 import { still as wallpaper } from '../bloom.js'
 import { loadContract } from './contract.js'
@@ -16,6 +17,7 @@ import { createRig, RIM } from './rig.js'
 import { createThings } from './things.js'
 import { createInput } from './input.js'
 import { createWall } from './wall.js'
+import { createAmbient } from './ambient.js'
 import { tick, Damp } from './motion.js'
 
 const WALL_LOOP = 16                                            // js/bloom.js turns its wallpaper once in this many seconds; the laptop's screen keeps the same time
@@ -79,7 +81,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, stencil: false, powerPreference: 'high-performance' })
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace          // the atlases are already the film's display values: nothing is converted or tone-mapped after them
   renderer.toneMapping = THREE.NoToneMapping
-  const gltf = await retry(() => new GLTFLoader().loadAsync(contract.glb))
+  const gltf = await retry(() => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(contract.glb))
   const scene = new THREE.Scene()
   scene.add(gltf.scene)
   scene.updateMatrixWorld(true)
@@ -107,6 +109,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   })
   const reseated = !!screenMesh && reseatScreen(screenMesh, contract.mirror.height ?? 0)
   const wall = createWall(scene, look, things, contract, camera)  // his pictures on the wall and the lamp's word (wall.js): lit by the same atlases, so the theme blends move them too
+  const ambient = createAmbient({ scene, camera, look, things, contract, small })      // what moves on its own: the dust, the ring's light, the idle sweep and the egg's nudge
   const screen = screenMesh ? screenFrame(screenMesh) : null
   const rig = createRig(camera, contract, scene, screen)
   const mirrorY = contract.mirror.height ?? (mirrorMesh ? new THREE.Box3().setFromObject(mirrorMesh).max.y : 0)
@@ -153,7 +156,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   watcher.observe(root)
 
   // ---- the loop -----------------------------------------------------------------------------------------
-  let raf = 0, last = 0, running = false, flying = null, dead = false, current = theme, wanted = theme, relighting = null
+  let raf = 0, last = 0, running = false, flying = null, dead = false, current = theme, wanted = theme, relighting = null, alive = 0
   const times = new Float32Array(120)
   let ti = 0, filled = 0, cool = 240, drawn = 0
   const waiting = []
@@ -175,6 +178,11 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
     look.U.uDive.value = rig.fill < 1 ? 0 : rig.dive                // docked, the lid keeps its black edge and its own picture
     look.U.uWake.value = docked                                    // the glass at full brightness while the desktop is on it
     look.U.uSpill.value = docked                                   // and its light on the keys and the desk
+    alive += dt
+    look.breathe(alive)                                            // the lamp and the tube breathe
+    const lens = lensWanted && TIERS[tier].lens
+    ambient.update(dt, { focus: focused ? focus.x : 2.7, aperture: lens ? aperture * (1 + 0.6 * docked) : 0, px: H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)),
+      dive: rig.dive, live: input.enabled, busy: rig.busy || !!flying, idleFor: (performance.now() - input.ptr.last) / 1000 })
     if (glue && screen) glue(glass())
     if (mirror) mirror.render(camera)
     const glow = TIERS[tier].bloom
@@ -272,7 +280,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   }
 
   const api = {
-    contract, canvas, camera, rig, things, look,
+    contract, canvas, camera, rig, things, look, ambient,
     start, stop,
     tag: () => (contract.standin ? 'Stand-in 3D scene: plain shapes until the real export is here' : !contract.baked ? 'Live 3D, first pass: the baked light has not arrived yet' : ''),
     set live(v) { input.enabled = v; if (!v) { things.calm(); onHover(null, null) } },
@@ -328,6 +336,22 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
       for (let i = 0; i < 8; i++) { v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera); y = Math.min(y, (1 - v.y) / 2 * root.clientHeight) }
       return [(c.x + 1) / 2 * root.clientWidth, y]
     },
+    // for the guide (js/guide.js): an object's box on the page, its middle, and the foot it stands on (CSS px of the
+    // stage). A thing that is not on the desk (the résumé on the wall) stands on the desk right under it.
+    anchor(id) {
+      const rec = things.by(id)
+      if (!rec) return null
+      const box = new THREE.Box3().setFromObject(rec.node), v = new THREE.Vector3(), w = root.clientWidth, h = root.clientHeight
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+      for (let i = 0; i < 8; i++) {
+        v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera)
+        const x = (v.x + 1) / 2 * w, y = (1 - v.y) / 2 * h
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y)
+      }
+      const c = rec.centre.clone().project(camera), cx = (c.x + 1) / 2 * w, cy = (1 - c.y) / 2 * h
+      v.set(rec.centre.x, rec.onDesk ? box.min.y : contract.mirror.height ?? 0, rec.centre.z).project(camera)
+      return { x0, x1, y0, y1, cx, cy, foot: [(v.x + 1) / 2 * w, (1 - v.y) / 2 * h], top: [cx, y0] }
+    },
     // back out: the room appears already inside the screen, then the camera pulls away
     async rise() {
       rig.setDive(1); rig.setApproach(0); rig.setFill(1)
@@ -355,7 +379,9 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
     },
     reset() { rig.setDive(0); rig.setApproach(0); rig.setFill(1); flying = null },
     stats: () => { let sum = 0, worst = 0; for (let i = 0; i < filled; i++) { sum += times[i]; worst = Math.max(worst, times[i]) } return { fps: filled ? 1000 / (sum / filled) : 0, worst, frames: drawn, tier, lens: lensWanted && TIERS[tier].lens, width: W, height: H, baked: contract.baked, standin: contract.standin, reseated, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls } },
-    destroy() { dead = true; stop(); watcher.disconnect(); input.dispose(); if (mirror) mirror.dispose(); bloom.dispose(); canvas.remove(); renderer.dispose() },
+    // the guide is showing the room round (js/guide.js): the idle sweep and the egg's nudges wait
+    quiet(v) { ambient.quiet = v },
+    destroy() { dead = true; stop(); watcher.disconnect(); input.dispose(); ambient.dispose(); if (mirror) mirror.dispose(); bloom.dispose(); canvas.remove(); renderer.dispose() },
   }
   window.__r3d = api                                            // for site/tools checks (frames a second, state); nothing on the page reads it
   return api

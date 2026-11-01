@@ -26,6 +26,7 @@ import * as trophies from './apps/trophies.js'
 import * as chat from './apps/chat.js'
 import * as about from './apps/about.js'
 import * as pdoc from './apps/portfolio.js'
+import * as hints from './hints.js'
 
 const root = document.getElementById('desktop')
 const phoneMQ = matchMedia(CONFIG.phone)
@@ -57,6 +58,7 @@ export async function enter(id, arg) {
   if (onlap) laptop.glue(root)                               // sized and on the glass before it shows
   root.hidden = false
   doze(false)
+  hints.wake(root)                                           // left alone, AI Arjun's box types the questions it can answer (js/hints.js)
   root.classList.add('arriving')
   // Flying in (js/room.js), the desktop itself is what the camera lands on; a window opens once it has landed, as an
   // app opens on a desktop. Opening it mid-flight cost the flight over 100 ms of frames.
@@ -76,6 +78,7 @@ export async function leave() {
   // on the laptop the camera pulls back with the desktop still on the glass; near the end the glass shows its own
   // picture again (the same wallpaper)
   if (onlap && !reduced()) await wait((parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-rise-ms')) || 1250) * 0.6)
+  hints.sleep()
   root.classList.add('leaving')
   await wait(reduced() ? 0 : 280)
   if (onlap) doze(true); else root.hidden = true
@@ -156,7 +159,7 @@ function startPanel(ui) {
     ['results', 'results', 'Results', D.record.length + ' results and awards'], ['ai', 'ai', 'AI Arjun', 'Ask anything about him'],
     ['about', 'about', 'About', 'Who he is and what he uses'], ['contact', 'contact', 'Contact', 'Send him a message']]
   const s = el('section', 'start ' + ui, `<header><h1>${esc(P.name)}</h1><p>${esc(P.summary)}</p></header>` +
-    `<nav aria-label="Places">${tiles.map(([id, icon, name, sub]) => `<button type="button" data-app="${id}">${ico(icon, 32)}<b>${name}</b><span>${esc(sub)}</span></button>`).join('')}</nav>` +
+    `<nav aria-label="Places">${tiles.map(([id, icon, name, sub], i) => `<button type="button" data-app="${id}" style="--i:${i}">${ico(icon, 32)}<b>${name}</b><span>${esc(sub)}</span></button>`).join('')}</nav>` +
     `<footer class="st-foot"><p>${line('home', 16)} on the taskbar goes back to the room.</p><nav class="st-links" aria-label="Elsewhere">` +
     [['github', 'GitHub', P.links.github], ['linkedin', 'LinkedIn', P.links.linkedin], ['medium', 'Medium', P.links.medium], ['youtube', 'YouTube', YOUTUBE]]
       .map(([id, name, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${ico(id, 16)}${name}</a>`).join('') + `<a href="plain.html">${line('list', 16)}Plain list</a></nav></footer>`)

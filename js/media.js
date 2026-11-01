@@ -69,7 +69,7 @@ export function pick(place, theme = media.theme) {
   return {
     poster: picture && picture.jpg, picture, clip: clip && clip.src, clipInfo: clip, loop,
     hold: t.hold || 0, status: t.status, tag: TAG[t.status] || '', own,
-    hotspots: spots(tall ? 'portrait' : 'landscape'),
+    hotspots: spots(own ? 'portrait' : 'landscape'),        // a 16:9 picture cropped for a tall screen keeps its own boxes (room.js maps them through the crop)
     // a 16:9 picture on a tall screen is aimed at the hero (the laptop): the x of its centre, as a fraction of the picture
     aim: tall && !own && hero && hero.box ? (hero.box[0] + hero.box[2]) / 2 : null,
   }

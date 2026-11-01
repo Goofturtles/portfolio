@@ -164,6 +164,22 @@ async function paint(theme) {
 }
 export const tag = () => (r3d ? r3d.tag() : shown ? shown.m.tag : '')
 
+// ---- for the guide (js/guide.js) ----
+// an object lit as if pointed at (balanced: every on is followed by an off)
+export function highlight(id, on) { light(id, on) }
+// where an object is on the page (px of the room): its box, its middle, the foot it stands on and its top middle
+export function anchor(id) {
+  if (r3d) return r3d.anchor(id)
+  const b = spot(id)
+  if (!b || b.hidden) return null
+  const r = b.getBoundingClientRect(), o = root.getBoundingClientRect(), x0 = r.left - o.left, x1 = r.right - o.left, y0 = r.top - o.top, y1 = r.bottom - o.top
+  return { x0, x1, y0, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, foot: [(x0 + x1) / 2, y1], top: [(x0 + x1) / 2, y0] }
+}
+// while the guide shows the room round, the idle sweep and the egg's nudges wait
+export function quiet(on) { if (r3d) r3d.quiet(on) }
+export const live = () => !!r3d
+export const settled = () => !root.hidden && root.classList.contains('in')
+
 // The place rests on a loop when the manifest has one for this lighting state (film/SPEC.md "Never static"): the
 // clip plays over its own first frame, which is the still.
 function rest(m) {
@@ -183,8 +199,9 @@ function sit(nat, m, w, h) {
   const s = Math.max(rw / nw, rh / nh), spare = nw * s - rw
   const ax = m.aim == null || spare < 1 ? 0.5 : Math.min(1, Math.max(0, (m.aim * nw * s - rw / 2) / spare))
   const x = (w - rw) / 2, y = (h - rh) / 2, ox = -spare * ax, oy = (rh - nh * s) / 2
-  // a tall screen with no picture of its own reads the manifest's 9:16 hotspots, which are fractions of the stage
-  const at = m.aim == null ? (fx, fy) => [x + ox + fx * nw * s, y + oy + fy * nh * s] : (fx, fy) => place(fx, fy, w, h)
+  // the hotspots are fractions of the picture shown, so they follow it however it is cropped (a tall screen shows the
+  // 16:9 picture aimed at the laptop: its 9:16 hotspots only ever had a box for the laptop, so nothing else could be tapped)
+  const at = (fx, fy) => [x + ox + fx * nw * s, y + oy + fy * nh * s]
   return { framed, x, y, w: rw, h: rh, pos: `${(ax * 100).toFixed(1)}% 50%`, at }
 }
 

@@ -10,6 +10,7 @@ import { Damp, Sway, ms } from './motion.js'
 import { makeTree, hitTree } from './pick.js'
 
 const TAU = Math.PI * 2, rad = THREE.MathUtils.degToRad
+const RING_TURN = 48                                             // seconds for one slow turn of the ring on its own
 const UP = new THREE.Vector3(0, 1, 0)
 
 export function createThings(scene, camera, contract) {
@@ -295,9 +296,9 @@ export function createThings(scene, camera, contract) {
       if (!seat.held) { seat.angle.time = ms('--m-settle-ms', 900) / 1000 * 0.7; seat.angle.to = hot === chair ? rad(3) : 0 }
       turn(seat.node, seat.rest, seat.axis, seat.angle.step(dt))
     }
-    if (spin) {                                                   // the ring turns slowly while it is pointed at
-      if (hot === ring || ring.forced > 0) spin.angle.to += 0.9 * dt
-      else spin.angle.to = Math.round(spin.angle.to / TAU) * TAU      // let go, it settles back to the nearest rest, never whips round
+    if (spin) {                                                   // the ring turns on its own, slowly, a desk toy (a turn in RING_TURN s); pointed at, faster
+      spin.angle.to += (hot === ring || ring.forced > 0 ? 0.9 : TAU / RING_TURN) * dt
+      if (spin.angle.to > 1e3) { spin.angle.to -= 159 * TAU; spin.angle.x -= 159 * TAU }      // kept small, so it never loses precision on a page left open for days
       turn(ring.node, ring.restQ, UP, spin.angle.step(dt))
     }
     if (stems.length) {
@@ -306,6 +307,14 @@ export function createThings(scene, camera, contract) {
       const near = ptr.inside ? Math.max(0, 1 - Math.hypot((ptr.x - tmp.x) * camera.aspect, ptr.y - tmp.y) / 0.42) : 0
       camera.getWorldDirection(dirV); dirV.y = 0; dirV.normalize()
       axis.crossVectors(dirV, UP)                                 // the camera's right, on the desk
+      stems.forEach((s, i) => {
+        // and a breeze of their own: a slow, uneven draught they lean into a degree or so, and every half minute or so a
+        // soft gust of three or four degrees; it reaches the second stem a moment after the first
+        const t = clock - i * 0.35, gust = Math.pow(Math.max(0, Math.sin(t * 0.21 + 0.4)), 8)
+        const wind = (Math.sin(t * 0.47) * 0.55 + Math.sin(t * 0.83 + 1.3) * 0.3 + Math.sin(t * 1.37 + 2.1) * 0.15) * (1 + 1.8 * gust) + 0.7 * gust
+        s.side.v += wind * 0.62 * s.gain * dt
+        s.depth.v += Math.sin(t * 0.61 + i * 2.3) * 0.22 * (1 + gust) * s.gain * dt
+      })
       for (const s of stems) {
         s.side.v += THREE.MathUtils.clamp(ptr.vx, -6, 6) * near * near * 7 * s.gain * dt      // a hand's pass leans them four or five degrees; a swipe, up to the stop below
         s.depth.v += THREE.MathUtils.clamp(ptr.vy, -6, 6) * near * near * 2.6 * s.gain * dt
@@ -338,6 +347,14 @@ export function createThings(scene, camera, contract) {
         return true
       }
       return false
+    },
+    // the egg, left alone a while, is given a small push (ambient.js): it rolls a few centimetres and settles; one that
+    // has been pushed far from its place wanders back toward it
+    nudge() {
+      if (!roll || Math.hypot(roll.vx, roll.vz) > 0.01) return
+      const hx = ball.rest.x - roll.x, hz = ball.rest.z - roll.z
+      const a = Math.hypot(hx, hz) > 0.05 ? Math.atan2(hz, hx) + (Math.random() - 0.5) * 0.8 : Math.random() * TAU, v = 0.1 + Math.random() * 0.06
+      roll.vx += Math.cos(a) * v; roll.vz += Math.sin(a) * v
     },
     isChair: (rec) => !!seat && rec === chair,
     isBall: (rec) => !!roll && rec === ball,

@@ -47,7 +47,7 @@ function normalise(j, dir) {
       id, frame: first(t, 'frame', 'f'), ui: t.ui, atlas: (n, size) => dir + atlasFile(atl[n], id, n, size), atlases: baked ? atl.length : 0,
       env: env ? dir + env : baked ? dir + `env_${id}.webp` : null,
       background: first(t, 'background', 'bg', 'background_colour', 'background_color') || '#14131a',
-      glow: first(t, 'glow', 'glows') || {}, levels: first(t, 'glow_levels', 'levels') || {},      // by material or node name; by what it is ("lamp_level")
+      glow: first(t, 'glow', 'glows') || {}, levels: first(t, 'glow_levels', 'levels', 'shot') || {},      // by material or node name; by what it is ("lamp_level"; the export of 2026-10 calls this table "shot")
     }
   }
   const cameras = {}
