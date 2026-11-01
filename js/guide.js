@@ -151,6 +151,11 @@ function aimAt(p, to) {
   return Math.max(-35, Math.min(80, Math.atan2(sy - to[1], Math.abs(to[0] - sx)) * 180 / Math.PI))
 }
 
+// He gets from thing to thing on foot: a few steps walked exactly (at his own stride, so the planted shoe never slides:
+// js/guide/arjun.js walkSpeed), or, further than a few steps, in hops (each about his own height across, a squash as he
+// pushes off and lands, a stretch in the air), so crossing the screen takes a second or two and not ten.
+const anc = () => posEl.firstElementChild
+function squash(sx, sy) { anc().style.transform = `translate(-50%, -100%) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})` }
 async function walkTo(p, my) {
   if (!at || reduced()) {
     place(p); at = p
@@ -159,14 +164,27 @@ async function walkTo(p, my) {
   }
   const from = at, d = Math.hypot(p.x - from.x, p.y - from.y)
   if (d < 6) { place(p); at = p; return }
-  arjun.face(p.x >= from.x ? 1 : -1); arjun.point(0); arjun.pose('walk')
-  const ms = Math.min(1600, Math.max(450, d / 0.42)), t0 = performance.now()
+  arjun.face(p.x >= from.x ? 1 : -1); arjun.point(0)
+  const stride = (arjun.stride || 0.206) * p.h, stepMs = arjun.stepMs || 500, walk = d < stride * 4.5
+  const n = walk ? Math.max(1, Math.round(d / stride)) : Math.max(1, Math.ceil(d / (p.h * 0.95)))
+  const per = walk ? stepMs : 380, ms = n * per
+  arjun.pose(walk ? 'walk' : 'idle')
+  const t0 = performance.now()
   await new Promise((done) => {
     const f = (now) => {
-      if (my !== token) return done()
-      const k = Math.min(1, (now - t0) / ms), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2
-      place({ x: from.x + (p.x - from.x) * e, y: from.y + (p.y - from.y) * e, h: from.h + (p.h - from.h) * e })
-      k < 1 ? requestAnimationFrame(f) : done()
+      if (my !== token) { squash(1, 1); return done() }
+      const k = Math.min(1, (now - t0) / ms)
+      let x = from.x + (p.x - from.x) * k, y = from.y + (p.y - from.y) * k, h = from.h + (p.h - from.h) * k
+      if (!walk) {
+        const j = Math.min(n - 1, Math.floor(k * n)), u = k * n - j          // which hop, and how far through it
+        const e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2          // each hop eases across its own span
+        const a = from, b = p, kk = (j + e) / n
+        x = a.x + (b.x - a.x) * kk; y = a.y + (b.y - a.y) * kk - Math.sin(Math.PI * u) * p.h * 0.2
+        const push = u < 0.14 ? 1 - u / 0.14 : u > 0.86 ? (u - 0.86) / 0.14 : 0, air = Math.sin(Math.PI * u)
+        squash(1 + 0.07 * push - 0.03 * air, 1 - 0.09 * push + 0.05 * air)
+      }
+      place({ x, y, h })
+      if (k < 1) requestAnimationFrame(f); else { squash(1, 1); done() }
     }
     requestAnimationFrame(f)
   })
@@ -283,10 +301,13 @@ function open() {
 }
 // the first visit: he walks in, waves, and asks
 export async function offer() {
+  makePill()                                                  // the Tutorial pill is there on every visit, seen the tour or not
   if (store.get(DONE) === '1' || run || asking || offered) return
   offered = true
+  if (pill) pill.classList.add('gd-busy')                    // on a first visit the pill waits until he has asked
+  for (let t = 0; document.getElementById('boot') && t < 120; t++) await wait(250)      // the loader is still up (the live room is slow to arrive): he waits for it
   await wait(1700)
-  if (!room.settled() || run || app.dataset.place !== 'room' || document.getElementById('boot')) { offered = false; return }
+  if (!room.settled() || run || asking || app.dataset.place !== 'room' || document.getElementById('boot')) { offered = false; if (pill && !run && !asking) pill.classList.remove('gd-busy'); return }
   open()
   asking = true
   const my = ++token
@@ -338,6 +359,7 @@ async function step(i) {
   arjun.pose(s.pose || (p.aim ? 'point' : 'idle'))
   arjun.point(aimAt(p, p.aim))
   if (s.at !== 'start' && s.at !== 'pill') light(s.at, true)
+  if (s.at === 'pill' && pill) pill.classList.remove('gd-busy')      // the Tutorial pill he is pointing at is there to see
   const btns = (i > 0 ? `<button type="button" class="gd-b" data-go="back">Back</button>` : '') + `<button type="button" class="gd-b gd-p" data-go="next">${i === list.length - 1 ? 'Done' : 'Next'}</button>`
   const c = data && data.clips[s.clip], words = c ? c.text : s.text
   showBubble(words, btns, n)

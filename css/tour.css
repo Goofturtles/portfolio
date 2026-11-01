@@ -55,7 +55,7 @@
 .tour-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 #room:not(.in) .tour-pill, .tour-pill.gd-busy { opacity: 0; pointer-events: none; transform: scale(.92); }
 .tp-face { position: relative; flex: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: linear-gradient(160deg, #dfe6ff, #f6dcef); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .6); }
-.tp-face .ga { position: absolute; left: 50%; top: 3px; translate: -50% 0; --ga-h: 78px; }
+.tp-face .ga { position: absolute; left: 50%; top: 1px; translate: -50% 0; --ga-h: 66px; }
 .tour-pill.tp-pop { animation: tp-pop .55s cubic-bezier(.2, 1.6, .4, 1); }
 .tour-pill.tp-wave { animation: tp-pop .55s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes tp-pop { 0% { transform: scale(.82); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }

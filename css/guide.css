@@ -1,2 +1,438 @@
-/* STAND-IN: replaced by the final character art (js/guide/arjun.js). */
-.ga { display: block; line-height: 0; }
+/* Mini Arjun, the guide (arjun.js). Everything is scoped under .ga.
+   Size: --ga-h (default 150px); the width follows the figure (120:200). The feet stand on the bottom edge, centred.
+   Walk cadence: --ga-step (default .5s per step); arjun.js's walkSpeed getter reads it, so the feet stay in sync.
+
+   Joints: every moving part is an SVG <g> with a CSS transform and its own transform-origin. The origins are SVG user
+   units (the 120 x 200 viewBox) with transform-box: view-box, not fill-box, on purpose: a limb group's fill-box grows
+   and shrinks as the joint inside it bends (the forearm swinging moves the shoulder group's box), which would make the
+   shoulder pivot drift during a wave. A fixed pivot in user units never moves. Please keep it that way.
+
+   Two layers per joint: the outer group (.ga-armF, .ga-foreF, .ga-head ...) holds the pose angle and eases to it with
+   a transition; the inner .ga-an group runs the pose's keyframes. arjun.js cross-fades the .ga-an groups (and the
+   <svg>) into the new pose. Idle costs nothing per frame in the SVG: breathing is a transform on the <svg> element
+   (composited), and the occasional head tilt / arm shift (.ga-dr, .ga-sw*) is a transition started from the blink
+   timer. */
+
+.ga {
+  position: relative; display: block; height: var(--ga-h, 150px); aspect-ratio: 120 / 200;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+  will-change: transform;                 /* own layer: SVG repaints (mouth, blink) never touch the page / WebGL */
+  --ga-rA: #FF9BD2;                       /* rim light on the figure's right edges: the room's pink neon side */
+  --ga-rB: #B2A8F4;                       /* rim light on the figure's left edges: the lavender lamp side */
+}
+.ga.ga-l { --ga-rA: #B2A8F4; --ga-rB: #FF9BD2; }   /* mirrored: each colour stays on its screen side */
+.ga > svg { display: block; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; }
+.ga g, .ga ellipse, .ga path { transform-box: view-box; }
+
+/* ---------- pivots (user units) ---------- */
+.ga .ga-fig { transform-origin: 60px 200px; transition: transform .22s cubic-bezier(.45, 0, .3, 1); }
+.ga .ga-mv { transform-origin: 60px 200px; }
+.ga .ga-shadow { transform-origin: 60px 199px; }
+.ga .ga-up { transform-origin: 60px 146px; }
+.ga .ga-head, .ga .ga-hd, .ga .ga-dr { transform-origin: 62px 88px; }
+.ga .ga-armN, .ga .ga-swN, .ga .ga-aN { transform-origin: 40px 99px; }
+.ga .ga-armF, .ga .ga-swF, .ga .ga-aF { transform-origin: 81px 99px; }
+.ga .ga-foreN, .ga .ga-fN { transform-origin: 40px 118px; }
+.ga .ga-foreF, .ga .ga-fF { transform-origin: 81px 118px; }
+.ga .ga-lN { transform-origin: 52.5px 142px; --ga-hx: 5px; }    /* hips; in the walk they draw together by 5 units */
+.ga .ga-lF { transform-origin: 68.5px 142px; --ga-hx: -5px; }
+.ga .ga-ftN { transform-origin: 52.5px 189px; }                  /* ankles */
+.ga .ga-ftF { transform-origin: 68.5px 189px; }
+.ga .ga-eyes { transform-origin: 64px 60px; transition: transform 60ms ease-in; }
+.ga .ga-iris { transition: transform .12s ease-out; }
+.ga .ga-brows, .ga .ga-lid { transition: transform .3s ease-out; }
+.ga .ga-brN { transform-origin: 51px 48.6px; transition: transform .3s ease-out; }
+.ga .ga-brF { transform-origin: 75.8px 48px; transition: transform .3s ease-out; }
+
+/* ---------- facing: 1 = right (as drawn), -1 = mirrored about the feet (the figure sits 3.5 units left of centre so its
+   shoes, which point forward, are centred); the flip passes through edge-on, which reads as a turn ---------- */
+.ga.ga-l .ga-fig { transform: scaleX(-1); }
+
+/* ---------- lighting stays put when he turns: the hair gloss (key light, upper left of the screen) has a variant for
+   each facing, and the rim colours swap sides (variables above). Both switch at the edge-on point of the turn. ------ */
+.ga .ga-rA { stop-color: var(--ga-rA); transition: stop-color 0s .11s; }
+.ga .ga-rB { stop-color: var(--ga-rB); transition: stop-color 0s .11s; }
+.ga .ga-glR, .ga .ga-glL { transition: visibility 0s .11s; }
+.ga .ga-glL, .ga.ga-l .ga-glR { visibility: hidden; }
+.ga.ga-l .ga-glL { visibility: visible; }
+
+/* ---------- blink (arjun.js toggles .ga-bk every 2-6 s): the eyes close, then closed-lid arcs replace the slit ---------- */
+.ga.ga-bk .ga-eyes { transform: scaleY(.1); }
+.ga .ga-shut { opacity: 0; transition: opacity 0s; }
+.ga.ga-bk .ga-shut { opacity: 1; transition: opacity 0s 55ms; }
+
+/* ---------- expression per pose: lower-lid squint --ga-sq (0 open .. 1 smiling eyes) and brows ---------- */
+.ga { --ga-sq: .4; }
+.ga[data-pose="walk"] { --ga-sq: .35; }
+.ga[data-pose="point"] { --ga-sq: .28; }
+.ga[data-pose="wave"] { --ga-sq: .9; }
+.ga[data-pose="cheer"] { --ga-sq: .78; }
+.ga .ga-lid { transform: translateY(calc(var(--ga-sq) * -4px)); }
+.ga[data-pose="point"] .ga-brows { transform: translateY(-.6px); }
+.ga[data-pose="wave"] .ga-brows { transform: translateY(-1.3px); }
+.ga[data-pose="cheer"] .ga-brows { transform: translateY(-1.8px); }
+.ga:is([data-pose="wave"], [data-pose="cheer"]) .ga-brN { transform: rotate(-5deg); }
+.ga:is([data-pose="wave"], [data-pose="cheer"]) .ga-brF { transform: rotate(5deg); }
+
+/* ---------- hands and faces per pose ---------- */
+.ga .ga-hP, .ga .ga-hO, .ga .ga-eyeH { display: none; }
+.ga[data-pose="point"] .ga-armF .ga-hF, .ga[data-pose="wave"] .ga-armF .ga-hF { display: none; }
+.ga[data-pose="point"] .ga-armF .ga-hP, .ga[data-pose="wave"] .ga-armF .ga-hO, .ga[data-pose="cheer"] .ga-hO, .ga[data-pose="cheer"] .ga-eyeH { display: inline; }
+
+/* ---------- pose angles (outer groups, eased) ---------- */
+.ga .ga-armN { transform: rotate(11deg); transition: transform .42s cubic-bezier(.3, 1.25, .5, 1); }
+.ga .ga-armF { transform: rotate(-11deg); transition: transform .42s cubic-bezier(.3, 1.25, .5, 1); }
+.ga .ga-foreN, .ga .ga-foreF { transition: transform .42s cubic-bezier(.3, 1.25, .5, 1); }
+.ga .ga-head { transition: transform .45s cubic-bezier(.3, 1.2, .5, 1); }
+.ga[data-pose="point"] .ga-armF { transform: rotate(var(--ga-s, -120deg)); }
+.ga[data-pose="point"] .ga-foreF { transform: rotate(var(--ga-e, 0deg)); }
+.ga[data-pose="point"] .ga-head { transform: rotate(var(--ga-t, -1deg)); }
+.ga[data-pose="wave"] .ga-armF { transform: rotate(-97deg); }     /* elbow well out to the side ... */
+.ga[data-pose="wave"] .ga-foreF { transform: rotate(-65deg); }    /* ... forearm 18 deg outward of vertical */
+.ga[data-pose="wave"] .ga-head { transform: rotate(-2deg); }
+
+/* ---------- idle family: breathing on the <svg> itself (composited; walk has its own bounce) ---------- */
+.ga > svg { animation: ga-breathe 3.6s ease-in-out infinite; }
+.ga[data-pose="walk"] > svg { animation: none; }
+@keyframes ga-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(.996, 1.012); } }
+/* occasional head tilt / arm shift, set from the blink timer (arjun.js fidget()) */
+.ga .ga-dr, .ga .ga-swN, .ga .ga-swF { transition: transform 1.5s ease-in-out; }
+
+/* ---------- still frames: what each pose shows when animation is off (the keyframes below override these) ---------- */
+.ga[data-pose="walk"] .ga-mv { transform: translateY(1.82px); }          /* 47 * (1 - cos 16deg): both soles flat */
+.ga[data-pose="walk"] .ga-up { transform: rotate(3deg); }
+.ga[data-pose="walk"] .ga-lN { transform: translate(5px, 0) rotate(-16deg); }
+.ga[data-pose="walk"] .ga-lF { transform: translate(-5px, 0) rotate(16deg); }
+.ga[data-pose="walk"] .ga-ftN { transform: rotate(16deg); }
+.ga[data-pose="walk"] .ga-ftF { transform: rotate(-16deg); }
+.ga[data-pose="walk"] .ga-aN { transform: rotate(14deg); }
+.ga[data-pose="walk"] .ga-aF { transform: rotate(-16deg); }
+.ga[data-pose="cheer"] .ga-aN { transform: rotate(139deg); }
+.ga[data-pose="cheer"] .ga-aF { transform: rotate(-139deg); }
+.ga[data-pose="cheer"] :is(.ga-eyeN, .ga-hF) { opacity: 0; }
+
+/* ---------- walk: 2 steps a cycle, --ga-step each. Start moving el at pose('walk'), at arjun.js walkSpeed px/s.
+   Legs, shoes and body bob are generated from the leg geometry (checks/gen-walk.mjs): the stance shoe is flat on the
+   floor and carried back at exactly STRIDE * height per step, rolls on its toe to push off and lands on its heel; the
+   body bob is computed from the stance sole, so it never sinks below or lifts off the floor. The cycle starts half a
+   step in (--ga-w0 / --ga-w1), with the near shoe planted under the hip as it is when standing, so the first frames
+   out of idle need almost no blending and the planted shoe holds from the start. ---------- */
+.ga[data-pose="walk"] { --ga-w0: calc(-.5 * var(--ga-step, .5s)); --ga-w1: calc(-1.5 * var(--ga-step, .5s)); }
+.ga[data-pose="walk"] .ga-mv { animation: ga-bob var(--ga-step, .5s) linear var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-lN { animation: ga-leg calc(2 * var(--ga-step, .5s)) linear var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-lF { animation: ga-leg calc(2 * var(--ga-step, .5s)) linear var(--ga-w1) infinite; }
+.ga[data-pose="walk"] .ga-ftN { animation: ga-foot calc(2 * var(--ga-step, .5s)) linear var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-ftF { animation: ga-foot calc(2 * var(--ga-step, .5s)) linear var(--ga-w1) infinite; }
+.ga[data-pose="walk"] .ga-aN { animation: ga-armN calc(2 * var(--ga-step, .5s)) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-aF { animation: ga-armF calc(2 * var(--ga-step, .5s)) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-fN { animation: ga-elbN calc(2 * var(--ga-step, .5s)) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-fF { animation: ga-elbF calc(2 * var(--ga-step, .5s)) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-up { animation: ga-lean var(--ga-step, .5s) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-hd { animation: ga-nod var(--ga-step, .5s) ease-in-out var(--ga-w0) infinite; }
+.ga[data-pose="walk"] .ga-shadow { animation: ga-shade var(--ga-step, .5s) ease-in-out var(--ga-w0) infinite; }
+@keyframes ga-armN { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(-24deg); } }
+@keyframes ga-armF { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(20deg); } }
+@keyframes ga-elbN { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(-20deg); } }
+@keyframes ga-elbF { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(-4deg); } }
+@keyframes ga-lean { 0%, 100% { transform: rotate(3deg); } 50% { transform: rotate(4.2deg) translateY(-.6px); } }
+@keyframes ga-nod { 0%, 100% { transform: rotate(.8deg); } 40% { transform: rotate(-1.4deg); } }
+@keyframes ga-shade { 0%, 100% { transform: scale(1.04); } 50% { transform: scale(.95); } }
+/* GENERATED walk: begin (node checks/gen-walk.mjs --write; do not hand-edit) */
+/* one leg's cycle = 2 steps: 0-50% stance (sole flat, carried back at 41.21 units a step), 50-59% toe-off roll,
+   free swing, 94-100% heel-strike roll. Hip-ankle 47 units, contact angle +-26deg. The far leg runs one step behind. */
+@keyframes ga-leg {
+  0% { transform: translate(var(--ga-hx), 0px) rotate(-26deg); }
+  3.125% { transform: translate(var(--ga-hx), 0px) rotate(-22.56deg); }
+  6.25% { transform: translate(var(--ga-hx), 0px) rotate(-19.19deg); }
+  9.375% { transform: translate(var(--ga-hx), 0px) rotate(-15.9deg); }
+  12.5% { transform: translate(var(--ga-hx), 0px) rotate(-12.66deg); }
+  15.625% { transform: translate(var(--ga-hx), 0px) rotate(-9.46deg); }
+  18.75% { transform: translate(var(--ga-hx), 0px) rotate(-6.29deg); }
+  21.875% { transform: translate(var(--ga-hx), 0px) rotate(-3.14deg); }
+  25% { transform: translate(var(--ga-hx), 0px) rotate(0deg); }
+  28.125% { transform: translate(var(--ga-hx), 0px) rotate(3.14deg); }
+  31.25% { transform: translate(var(--ga-hx), 0px) rotate(6.29deg); }
+  34.375% { transform: translate(var(--ga-hx), 0px) rotate(9.46deg); }
+  37.5% { transform: translate(var(--ga-hx), 0px) rotate(12.66deg); }
+  40.625% { transform: translate(var(--ga-hx), 0px) rotate(15.9deg); }
+  43.75% { transform: translate(var(--ga-hx), 0px) rotate(19.19deg); }
+  46.875% { transform: translate(var(--ga-hx), 0px) rotate(22.56deg); }
+  50% { transform: translate(var(--ga-hx), 0px) rotate(26deg); }
+  50.391% { transform: translate(var(--ga-hx), 0.27px) rotate(26.41deg); }
+  50.781% { transform: translate(var(--ga-hx), 0.47px) rotate(26.75deg); }
+  51.172% { transform: translate(var(--ga-hx), 0.6px) rotate(27.05deg); }
+  51.563% { transform: translate(var(--ga-hx), 0.67px) rotate(27.29deg); }
+  52.344% { transform: translate(var(--ga-hx), 0.64px) rotate(27.63deg); }
+  53.125% { transform: translate(var(--ga-hx), 0.43px) rotate(27.81deg); }
+  54.688% { transform: translate(var(--ga-hx), -0.26px) rotate(27.84deg); }
+  55.469% { transform: translate(var(--ga-hx), -0.63px) rotate(27.79deg); }
+  56.25% { transform: translate(var(--ga-hx), -0.92px) rotate(27.77deg); }
+  56.938% { transform: translate(var(--ga-hx), -1.08px) rotate(27.85deg); }
+  57.625% { transform: translate(var(--ga-hx), -1.11px) rotate(28.06deg); }
+  57.969% { transform: translate(var(--ga-hx), -1.06px) rotate(28.23deg); }
+  58.312% { transform: translate(var(--ga-hx), -0.96px) rotate(28.46deg); }
+  58.656% { transform: translate(var(--ga-hx), -0.81px) rotate(28.75deg); }
+  59% { transform: translate(var(--ga-hx), -0.6px) rotate(29.11deg); }
+  59.375% { transform: translate(var(--ga-hx), -0.5px) rotate(29.51deg); }
+  59.766% { transform: translate(var(--ga-hx), -0.4px) rotate(29.85deg); }
+  60.156% { transform: translate(var(--ga-hx), -0.32px) rotate(30.12deg); }
+  60.547% { transform: translate(var(--ga-hx), -0.25px) rotate(30.33deg); }
+  60.938% { transform: translate(var(--ga-hx), -0.19px) rotate(30.47deg); }
+  61.328% { transform: translate(var(--ga-hx), -0.15px) rotate(30.54deg); }
+  61.719% { transform: translate(var(--ga-hx), -0.12px) rotate(30.54deg); }
+  62.5% { transform: translate(var(--ga-hx), -0.09px) rotate(30.38deg); }
+  63.281% { transform: translate(var(--ga-hx), -0.12px) rotate(29.97deg); }
+  64.063% { transform: translate(var(--ga-hx), -0.2px) rotate(29.34deg); }
+  64.844% { transform: translate(var(--ga-hx), -0.31px) rotate(28.51deg); }
+  65.625% { transform: translate(var(--ga-hx), -0.46px) rotate(27.47deg); }
+  66.406% { transform: translate(var(--ga-hx), -0.64px) rotate(26.26deg); }
+  67.188% { transform: translate(var(--ga-hx), -0.85px) rotate(24.87deg); }
+  67.969% { transform: translate(var(--ga-hx), -1.08px) rotate(23.33deg); }
+  68.75% { transform: translate(var(--ga-hx), -1.33px) rotate(21.65deg); }
+  69.531% { transform: translate(var(--ga-hx), -1.6px) rotate(19.83deg); }
+  70.313% { transform: translate(var(--ga-hx), -1.88px) rotate(17.9deg); }
+  70.508% { transform: translate(var(--ga-hx), -1.95px) rotate(17.4deg); }
+  70.703% { transform: translate(var(--ga-hx), -2.14px) rotate(16.89deg); }
+  71.094% { transform: translate(var(--ga-hx), -2.51px) rotate(15.86deg); }
+  71.875% { transform: translate(var(--ga-hx), -3.18px) rotate(13.74deg); }
+  72.266% { transform: translate(var(--ga-hx), -3.48px) rotate(12.64deg); }
+  72.656% { transform: translate(var(--ga-hx), -3.75px) rotate(11.53deg); }
+  73.047% { transform: translate(var(--ga-hx), -3.99px) rotate(10.4deg); }
+  73.438% { transform: translate(var(--ga-hx), -4.21px) rotate(9.26deg); }
+  74.219% { transform: translate(var(--ga-hx), -4.54px) rotate(6.94deg); }
+  75% { transform: translate(var(--ga-hx), -4.8px) rotate(4.58deg); }
+  75.781% { transform: translate(var(--ga-hx), -4.97px) rotate(2.2deg); }
+  76.563% { transform: translate(var(--ga-hx), -5.06px) rotate(-0.2deg); }
+  77.344% { transform: translate(var(--ga-hx), -5.06px) rotate(-2.6deg); }
+  78.125% { transform: translate(var(--ga-hx), -4.97px) rotate(-4.98deg); }
+  78.906% { transform: translate(var(--ga-hx), -4.79px) rotate(-7.33deg); }
+  79.688% { transform: translate(var(--ga-hx), -4.53px) rotate(-9.65deg); }
+  80.469% { transform: translate(var(--ga-hx), -4.2px) rotate(-11.91deg); }
+  81.25% { transform: translate(var(--ga-hx), -3.8px) rotate(-14.1deg); }
+  82.031% { transform: translate(var(--ga-hx), -3.34px) rotate(-16.21deg); }
+  82.813% { transform: translate(var(--ga-hx), -2.84px) rotate(-18.23deg); }
+  83.594% { transform: translate(var(--ga-hx), -2.29px) rotate(-20.15deg); }
+  84.375% { transform: translate(var(--ga-hx), -1.73px) rotate(-21.94deg); }
+  85.156% { transform: translate(var(--ga-hx), -1.16px) rotate(-23.61deg); }
+  85.938% { transform: translate(var(--ga-hx), -0.59px) rotate(-25.12deg); }
+  86.719% { transform: translate(var(--ga-hx), -0.04px) rotate(-26.48deg); }
+  87.5% { transform: translate(var(--ga-hx), 0.47px) rotate(-27.67deg); }
+  88.281% { transform: translate(var(--ga-hx), 0.93px) rotate(-28.67deg); }
+  89.063% { transform: translate(var(--ga-hx), 1.34px) rotate(-29.47deg); }
+  89.844% { transform: translate(var(--ga-hx), 1.67px) rotate(-30.07deg); }
+  90.625% { transform: translate(var(--ga-hx), 1.91px) rotate(-30.43deg); }
+  91.406% { transform: translate(var(--ga-hx), 2.06px) rotate(-30.57deg); }
+  92.188% { transform: translate(var(--ga-hx), 2.11px) rotate(-30.44deg); }
+  92.969% { transform: translate(var(--ga-hx), 2.04px) rotate(-30.06deg); }
+  93.75% { transform: translate(var(--ga-hx), 1.87px) rotate(-29.4deg); }
+  94% { transform: translate(var(--ga-hx), 1.79px) rotate(-29.13deg); }
+  94.359% { transform: translate(var(--ga-hx), 1.55px) rotate(-28.76deg); }
+  94.719% { transform: translate(var(--ga-hx), 1.36px) rotate(-28.46deg); }
+  95.078% { transform: translate(var(--ga-hx), 1.22px) rotate(-28.23deg); }
+  95.438% { transform: translate(var(--ga-hx), 1.12px) rotate(-28.05deg); }
+  96.156% { transform: translate(var(--ga-hx), 0.99px) rotate(-27.8deg); }
+  96.875% { transform: translate(var(--ga-hx), 0.93px) rotate(-27.64deg); }
+  97.656% { transform: translate(var(--ga-hx), 0.88px) rotate(-27.45deg); }
+  98.438% { transform: translate(var(--ga-hx), 0.76px) rotate(-27.18deg); }
+  98.828% { transform: translate(var(--ga-hx), 0.65px) rotate(-26.97deg); }
+  99.219% { transform: translate(var(--ga-hx), 0.49px) rotate(-26.72deg); }
+  99.609% { transform: translate(var(--ga-hx), 0.28px) rotate(-26.4deg); }
+  100% { transform: translate(var(--ga-hx), 0px) rotate(-26deg); }
+}
+@keyframes ga-foot {
+  0% { transform: rotate(26deg); }
+  3.125% { transform: rotate(22.56deg); }
+  6.25% { transform: rotate(19.19deg); }
+  9.375% { transform: rotate(15.9deg); }
+  12.5% { transform: rotate(12.66deg); }
+  15.625% { transform: rotate(9.46deg); }
+  18.75% { transform: rotate(6.29deg); }
+  21.875% { transform: rotate(3.14deg); }
+  25% { transform: rotate(0deg); }
+  28.125% { transform: rotate(-3.14deg); }
+  31.25% { transform: rotate(-6.29deg); }
+  34.375% { transform: rotate(-9.46deg); }
+  37.5% { transform: rotate(-12.66deg); }
+  40.625% { transform: rotate(-15.9deg); }
+  43.75% { transform: rotate(-19.19deg); }
+  46.875% { transform: rotate(-22.56deg); }
+  50% { transform: rotate(-26deg); }
+  50.391% { transform: rotate(-26.29deg); }
+  50.781% { transform: rotate(-26.28deg); }
+  51.172% { transform: rotate(-26.02deg); }
+  51.563% { transform: rotate(-25.53deg); }
+  52.344% { transform: rotate(-23.93deg); }
+  53.125% { transform: rotate(-21.7deg); }
+  54.688% { transform: rotate(-16.16deg); }
+  55.469% { transform: rotate(-13.29deg); }
+  56.25% { transform: rotate(-10.68deg); }
+  56.938% { transform: rotate(-8.78deg); }
+  57.625% { transform: rotate(-7.44deg); }
+  57.969% { transform: rotate(-7.03deg); }
+  58.312% { transform: rotate(-6.83deg); }
+  58.656% { transform: rotate(-6.85deg); }
+  59% { transform: rotate(-7.11deg); }
+  59.375% { transform: rotate(-7.56deg); }
+  59.766% { transform: rotate(-8.05deg); }
+  60.156% { transform: rotate(-8.56deg); }
+  60.547% { transform: rotate(-9.1deg); }
+  60.938% { transform: rotate(-9.65deg); }
+  61.328% { transform: rotate(-10.22deg); }
+  61.719% { transform: rotate(-10.79deg); }
+  62.5% { transform: rotate(-11.95deg); }
+  63.281% { transform: rotate(-13.1deg); }
+  64.063% { transform: rotate(-14.2deg); }
+  64.844% { transform: rotate(-15.22deg); }
+  65.625% { transform: rotate(-16.13deg); }
+  66.406% { transform: rotate(-16.9deg); }
+  67.188% { transform: rotate(-17.5deg); }
+  67.969% { transform: rotate(-17.9deg); }
+  68.75% { transform: rotate(-18.05deg); }
+  69.531% { transform: rotate(-17.94deg); }
+  70.313% { transform: rotate(-17.53deg); }
+  70.508% { transform: rotate(-17.38deg); }
+  70.703% { transform: rotate(-17.2deg); }
+  71.094% { transform: rotate(-16.79deg); }
+  71.875% { transform: rotate(-15.68deg); }
+  72.266% { transform: rotate(-14.98deg); }
+  72.656% { transform: rotate(-14.17deg); }
+  73.047% { transform: rotate(-13.26deg); }
+  73.438% { transform: rotate(-12.24deg); }
+  74.219% { transform: rotate(-9.96deg); }
+  75% { transform: rotate(-7.7deg); }
+  75.781% { transform: rotate(-5.49deg); }
+  76.563% { transform: rotate(-3.34deg); }
+  77.344% { transform: rotate(-1.25deg); }
+  78.125% { transform: rotate(0.76deg); }
+  78.906% { transform: rotate(2.7deg); }
+  79.688% { transform: rotate(4.55deg); }
+  80.469% { transform: rotate(6.31deg); }
+  81.25% { transform: rotate(7.98deg); }
+  82.031% { transform: rotate(9.54deg); }
+  82.813% { transform: rotate(11deg); }
+  83.594% { transform: rotate(12.34deg); }
+  84.375% { transform: rotate(13.56deg); }
+  85.156% { transform: rotate(14.65deg); }
+  85.938% { transform: rotate(15.6deg); }
+  86.719% { transform: rotate(16.42deg); }
+  87.5% { transform: rotate(17.09deg); }
+  88.281% { transform: rotate(17.6deg); }
+  89.063% { transform: rotate(17.96deg); }
+  89.844% { transform: rotate(18.15deg); }
+  90.625% { transform: rotate(18.17deg); }
+  91.406% { transform: rotate(18.01deg); }
+  92.188% { transform: rotate(17.67deg); }
+  92.969% { transform: rotate(17.14deg); }
+  93.75% { transform: rotate(16.4deg); }
+  94% { transform: rotate(16.13deg); }
+  94.359% { transform: rotate(15.89deg); }
+  94.719% { transform: rotate(15.97deg); }
+  95.078% { transform: rotate(16.34deg); }
+  95.438% { transform: rotate(16.93deg); }
+  96.156% { transform: rotate(18.63deg); }
+  96.875% { transform: rotate(20.73deg); }
+  97.656% { transform: rotate(23.05deg); }
+  98.438% { transform: rotate(24.99deg); }
+  98.828% { transform: rotate(25.68deg); }
+  99.219% { transform: rotate(26.11deg); }
+  99.609% { transform: rotate(26.24deg); }
+  100% { transform: rotate(26deg); }
+}
+@keyframes ga-bob {
+  0% { transform: translateY(4.76px); }
+  3.125% { transform: translateY(4.15px); }
+  6.25% { transform: translateY(3.6px); }
+  9.375% { transform: translateY(3.08px); }
+  12.5% { transform: translateY(2.61px); }
+  18.75% { transform: translateY(1.8px); }
+  25% { transform: translateY(1.14px); }
+  31.25% { transform: translateY(0.64px); }
+  37.5% { transform: translateY(0.28px); }
+  43.75% { transform: translateY(0.07px); }
+  50% { transform: translateY(0px); }
+  56.25% { transform: translateY(0.07px); }
+  62.5% { transform: translateY(0.28px); }
+  68.75% { transform: translateY(0.64px); }
+  75% { transform: translateY(1.14px); }
+  81.25% { transform: translateY(1.8px); }
+  87.5% { transform: translateY(2.61px); }
+  90.625% { transform: translateY(3.08px); }
+  93.75% { transform: translateY(3.6px); }
+  96.875% { transform: translateY(4.15px); }
+  100% { transform: translateY(4.76px); }
+}
+/* GENERATED walk: end */
+
+/* ---------- wave: the arm eases up, elbow out (outer groups), the forearm waves three times, then the hand stays up */
+.ga[data-pose="wave"] .ga-fF { animation: ga-x-wave 1.3s ease-in-out .28s 1 both; }
+@keyframes ga-x-wave { /* + swings the hand out, - towards the head; the elbow is far enough out that the palm clears the hair */
+  0% { transform: rotate(0deg); } 12% { transform: rotate(28deg); } 27% { transform: rotate(-14deg); }
+  42% { transform: rotate(28deg); } 57% { transform: rotate(-14deg); } 72% { transform: rotate(26deg); }
+  86% { transform: rotate(-7deg); } 100% { transform: rotate(0deg); }
+}
+
+/* ---------- cheer: crouch, jump with both arms up, land with a squash, then the arms fold in and come down in front
+   (elbows bend so the hands pass across the chest, never out through a T) ---------- */
+.ga[data-pose="cheer"] .ga-mv { animation: ga-x-jump 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-shadow { animation: ga-x-jumpS 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-aN { animation: ga-x-upN 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-aF { animation: ga-x-upF 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-fN { animation: ga-x-foldN 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-fF { animation: ga-x-foldF 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-lN { animation: ga-x-kickN 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-lF { animation: ga-x-kickF 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-ftN { animation: ga-x-toeN 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-ftF { animation: ga-x-toeF 1.3s .04s 1 both; }
+.ga[data-pose="cheer"] .ga-hd { animation: ga-x-joy 1.3s .04s 1 both; }
+/* face and hands swap in one frame (step timing): no cross-fade, so no ghosted double eyes */
+.ga[data-pose="cheer"] .ga-eyeN { animation: ga-x-eyeN 1.3s .04s 1 both step-end; }
+.ga[data-pose="cheer"] .ga-eyeH { animation: ga-x-eyeH 1.3s .04s 1 both step-end; }
+.ga[data-pose="cheer"] .ga-hF { animation: ga-x-handF 1.3s .04s 1 both step-end; }
+.ga[data-pose="cheer"] .ga-hO { animation: ga-x-handO 1.3s .04s 1 both step-end; }
+@keyframes ga-x-jump {
+  0% { transform: translateY(0) scale(1, 1); animation-timing-function: cubic-bezier(.3, 0, .5, 1); }
+  14% { transform: translateY(1.5px) scale(1.07, .91); animation-timing-function: cubic-bezier(.3, 0, .4, 1); }
+  24% { transform: translateY(-9px) scale(.95, 1.07); animation-timing-function: cubic-bezier(.2, .6, .4, 1); }
+  42% { transform: translateY(-26px) scale(1, 1); animation-timing-function: cubic-bezier(.6, 0, .8, .5); }
+  58% { transform: translateY(0) scale(.97, 1.04); animation-timing-function: cubic-bezier(.2, .6, .4, 1); }
+  67% { transform: translateY(1.5px) scale(1.08, .9); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  80% { transform: translateY(-1px) scale(.98, 1.02); animation-timing-function: ease-in-out; }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes ga-x-jumpS {
+  0% { transform: scale(1); opacity: 1; } 14% { transform: scale(1.06); opacity: 1; } 42% { transform: scale(.6); opacity: .5; }
+  58% { transform: scale(1); opacity: 1; } 67% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; }
+}
+/* shoulders: up in a V by 26%, held through the landing, then down through 85 deg to the rest angle */
+@keyframes ga-x-upN {
+  0% { transform: rotate(0deg); } 14% { transform: rotate(-8deg); } 26%, 70% { transform: rotate(139deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+  81% { transform: rotate(70deg); animation-timing-function: cubic-bezier(.4, 0, .4, 1); } 91% { transform: rotate(18deg); animation-timing-function: ease-out; } 100% { transform: rotate(0deg); }
+}
+@keyframes ga-x-upF {
+  0% { transform: rotate(0deg); } 14% { transform: rotate(8deg); } 26%, 70% { transform: rotate(-139deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+  81% { transform: rotate(-70deg); animation-timing-function: cubic-bezier(.4, 0, .4, 1); } 91% { transform: rotate(-18deg); animation-timing-function: ease-out; } 100% { transform: rotate(0deg); }
+}
+/* elbows: fold the forearms inward as the arms come down, sweep the hands across the chest, unfold to hang */
+@keyframes ga-x-foldN {
+  0%, 70% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+  81% { transform: rotate(140deg); animation-timing-function: cubic-bezier(.4, 0, .4, 1); } 91% { transform: rotate(238deg); animation-timing-function: ease-out; } 100% { transform: rotate(360deg); }
+}
+@keyframes ga-x-foldF {
+  0%, 70% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+  81% { transform: rotate(-140deg); animation-timing-function: cubic-bezier(.4, 0, .4, 1); } 91% { transform: rotate(-238deg); animation-timing-function: ease-out; } 100% { transform: rotate(-360deg); }
+}
+@keyframes ga-x-kickN { 0%, 22%, 58%, 100% { transform: rotate(0deg) translateY(0); } 40% { transform: rotate(10deg) translateY(-3px); } }
+@keyframes ga-x-kickF { 0%, 22%, 58%, 100% { transform: rotate(0deg) translateY(0); } 40% { transform: rotate(-9deg) translateY(-3px); } }
+@keyframes ga-x-toeN { 0%, 22%, 58%, 100% { transform: rotate(0deg); } 40% { transform: rotate(6deg); } }
+@keyframes ga-x-toeF { 0%, 22%, 58%, 100% { transform: rotate(0deg); } 40% { transform: rotate(16deg); } }
+@keyframes ga-x-joy { 0%, 100% { transform: rotate(0deg); } 42% { transform: rotate(-3deg); } 67% { transform: rotate(1.5deg); } }
+@keyframes ga-x-eyeN { 0% { opacity: 1; } 9% { opacity: 0; } 84%, 100% { opacity: 1; } }
+@keyframes ga-x-eyeH { 0% { opacity: 0; } 9% { opacity: 1; } 84%, 100% { opacity: 0; } }
+@keyframes ga-x-handF { 0% { opacity: 1; } 18% { opacity: 0; } 92%, 100% { opacity: 1; } }
+@keyframes ga-x-handO { 0% { opacity: 0; } 18% { opacity: 1; } 92%, 100% { opacity: 0; } }
+
+/* ---------- reduced motion: still poses only (the still frames above); blinking stays, as a snap ---------- */
+html.calm .ga, html.calm .ga * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .ga, .ga * { animation: none !important; transition: none !important; }
+}
