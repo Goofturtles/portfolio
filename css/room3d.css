@@ -6,6 +6,7 @@
 #room.live3d canvas.r3d { opacity: 1; }
 #room.live3d.point canvas.r3d { cursor: pointer; }
 #room.live3d.grab canvas.r3d { cursor: grabbing; }
+#room.live3d.on-guide canvas.r3d { cursor: pointer; }      /* mini Arjun on the desk (js/room3d/guide3d.js) */
 /* once the live room is up, the still and its hit boxes are out of the way (kept in the page for the fallback) */
 #room.live3d .frame, #room.live3d .spots { visibility: hidden; transition: visibility 0s var(--m-fade); }
 #room:not(.live3d) canvas.r3d { pointer-events: none; }

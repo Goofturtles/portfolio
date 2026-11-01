@@ -328,6 +328,9 @@ export function createThings(scene, camera, contract) {
   }
 
   return {
+    // for the guide (guide3d.js): what stands on the desk, as the egg sees it, and the egg itself (where, how fast)
+    get feet() { return roll ? roll.feet : [] },
+    get egg() { return roll || null },
     records, by, pick, holds, update, groupOf: (mesh) => { const r = owner.get(mesh); return r ? r.group : undefined },
     get hot() { return hot },
     setHot(rec) { hot = rec || null },

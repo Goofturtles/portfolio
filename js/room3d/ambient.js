@@ -3,6 +3,9 @@
 //   dust      a few hundred motes drifting through the air over the desk, brighter where the lamp lights them, wider
 //             and softer where the lens has them out of focus (the same lens as post.js). Drawn on the glass layer:
 //             added to the light that is there, never hiding a glow, and mirrored by the desk like everything else.
+//             The air is really there (Arjun, 2026-11-01: "I want the ambience to be actually 3d"): the pointer moving
+//             through the room stirs the motes round the place it points at, at that depth, and they swirl back;
+//             mini Arjun landing a hop puffs them away from his feet (guide3d.js).
 //   the ring  AI Arjun's ring wakes now and then: a soft light runs once round it, as an assistant's does when it
 //             listens; pointed at, it keeps running.
 //   idle      after a while with no hand on the room, the light sweeps across the objects again (they are the
@@ -16,7 +19,8 @@ const DUST_VERT = `
 precision highp float;
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uTime, uPx, uFocus, uAperture, uMix, uFade;
-uniform vec3 uLo, uSize, uLampPos, uLampA, uLampB, uSkyA, uSkyB;
+uniform vec3 uLo, uSize, uLampPos, uLampA, uLampB, uSkyA, uSkyB, uStirV;
+uniform vec4 uStir, uPuff;        // xyz: where (world), w: how strongly (0..1)
 in vec3 position;                 // where in the box, 0..1 on each axis
 in vec4 seed;                     // x: size, y and z: phases, w: speed (0..1 each)
 out vec3 vC; out float vSoft;
@@ -29,6 +33,11 @@ void main() {
   vec3 f = fract(position + (drift + curl) / uSize);
   vec3 e = smoothstep(0., .1, f) * smoothstep(1., .9, f);            // it fades where the box wraps round: nothing pops
   vec3 p = uLo + f * uSize;
+  vec3 sd = p - uStir.xyz;                                            // stirred: pushed aside, swirled round, carried along
+  float sk = uStir.w * exp(-dot(sd, sd) / .012);
+  p += (normalize(sd + 1e-4) * .022 + cross(vec3(0., 1., 0.), sd) * 1.6 + uStirV * .08) * sk;
+  vec3 pd = p - uPuff.xyz;                                            // puffed away from his feet
+  p += normalize(pd + 1e-4) * .03 * uPuff.w * exp(-dot(pd, pd) / .005);
   vec4 mv = modelViewMatrix * vec4(p, 1.);
   float d = max(-mv.z, .05);
   float s = (.0022 + .0034 * seed.x) * uPx / d;                       // its own size on the screen, in pixels
@@ -72,6 +81,7 @@ export function createAmbient({ scene, camera, look, things, contract, small }) 
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
   geo.setAttribute('seed', new THREE.BufferAttribute(seed, 4))
   const dustU = { uTime: { value: 0 }, uPx: { value: 1000 }, uFocus: { value: 2.7 }, uAperture: { value: 0 }, uFade: { value: 0 }, uLo: { value: lo }, uSize: { value: size },
+    uStir: { value: new THREE.Vector4(0, -9, 0, 0) }, uStirV: { value: new THREE.Vector3() }, uPuff: { value: new THREE.Vector4(0, -9, 0, 0) },
     uMix: U.uMix, uLampPos: U.uLampPos, uLampA: U.uLampA, uLampB: U.uLampB, uSkyA: U.uSkyA, uSkyB: U.uSkyB }
   const mat = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: DUST_VERT, fragmentShader: DUST_FRAG, uniforms: dustU, transparent: true, depthWrite: false,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor })
@@ -126,13 +136,32 @@ export function createAmbient({ scene, camera, look, things, contract, small }) 
     }
   }
 
+  // ---- the pointer in the room: where it points, at the depth of the air over the desk ----
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), mid = lo.clone().addScaledVector(size, 0.5), here = new THREE.Vector3(), was = new THREE.Vector3(), vel = new THREE.Vector3()
+  let stir = 0, had = false
+  function stirAt(dt, ptr) {
+    const S = dustU.uStir.value, P = dustU.uPuff.value
+    P.w *= Math.exp(-dt * 2.2)
+    if (!ptr || !ptr.inside || dt <= 0) { stir *= Math.exp(-dt * 1.6); S.w = stir; had = false; return }
+    ndc.set(ptr.x, ptr.y)
+    ray.setFromCamera(ndc, camera)
+    here.copy(ray.ray.origin).addScaledVector(ray.ray.direction, camera.position.distanceTo(mid) * 0.92)
+    if (had) { vel.subVectors(here, was).divideScalar(dt); stir += (Math.min(1, vel.length() * 1.4) - stir) * (1 - Math.exp(-dt * (vel.length() > 0.05 ? 6 : 1.4))) }
+    was.copy(here); had = true
+    S.set(here.x, here.y, here.z, stir)
+    dustU.uStirV.value.lerp(vel.clampLength(0, 1.5), 1 - Math.exp(-dt * 5))
+  }
+
   return {
     dust,
+    // mini Arjun landed here (guide3d.js): the motes nearby are puffed away
+    puff(p, k = 1) { dustU.uPuff.value.set(p.x, p.y + 0.02, p.z, k) },
     get pulsing() { return pulsing },
     // quiet: the guide is showing the room round (js/guide.js): no sweeps, no nudges under him
     set quiet(v) { quiet = !!v },
-    update(dt, { focus, aperture, px, dive, live, busy, idleFor }) {
+    update(dt, { focus, aperture, px, dive, live, busy, idleFor, ptr }) {
       time += dt
+      stirAt(dt, live ? ptr : null)
       fade = Math.min(1, fade + dt / 2.5)                                            // the dust settles in over the first seconds
       dustU.uTime.value = time
       dustU.uPx.value = px; dustU.uFocus.value = Math.max(0.3, focus); dustU.uAperture.value = aperture

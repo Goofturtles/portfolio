@@ -18,6 +18,7 @@ import { createThings } from './things.js'
 import { createInput } from './input.js'
 import { createWall } from './wall.js'
 import { createAmbient } from './ambient.js'
+import { createGuide3d } from './guide3d.js'
 import { tick, Damp } from './motion.js'
 
 const WALL_LOOP = 16                                            // js/bloom.js turns its wallpaper once in this many seconds; the laptop's screen keeps the same time
@@ -109,7 +110,8 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   })
   const reseated = !!screenMesh && reseatScreen(screenMesh, contract.mirror.height ?? 0)
   const wall = createWall(scene, look, things, contract, camera)  // his pictures on the wall and the lamp's word (wall.js): lit by the same atlases, so the theme blends move them too
-  const ambient = createAmbient({ scene, camera, look, things, contract, small })      // what moves on its own: the dust, the ring's light, the idle sweep and the egg's nudge
+  const ambient = createAmbient({ scene, camera, look, things, contract, small })
+  const guide3d = createGuide3d({ scene, camera, canvas, look, things, contract, ambient })      // mini Arjun on the desk (guide3d.js): loaded when the guide first needs him      // what moves on its own: the dust, the ring's light, the idle sweep and the egg's nudge
   const screen = screenMesh ? screenFrame(screenMesh) : null
   const rig = createRig(camera, contract, scene, screen)
   const mirrorY = contract.mirror.height ?? (mirrorMesh ? new THREE.Box3().setFromObject(mirrorMesh).max.y : 0)
@@ -169,6 +171,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
     input.frame(dt)
     things.update(dt, input.ptr, flying)
     wall.update(dt)
+    guide3d.update(dt)
     scene.updateMatrixWorld()
     if (screen) { screen.refresh(); look.seeScreen(screen) }
     if (egg) look.seeBall(egg.centre, contract.ball.radius || egg.bound)
@@ -182,7 +185,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
     look.breathe(alive)                                            // the lamp and the tube breathe
     const lens = lensWanted && TIERS[tier].lens
     ambient.update(dt, { focus: focused ? focus.x : 2.7, aperture: lens ? aperture * (1 + 0.6 * docked) : 0, px: H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)),
-      dive: rig.dive, live: input.enabled, busy: rig.busy || !!flying, idleFor: (performance.now() - input.ptr.last) / 1000 })
+      dive: rig.dive, live: input.enabled, busy: rig.busy || !!flying, idleFor: (performance.now() - input.ptr.last) / 1000, ptr: input.ptr })
     if (glue && screen) glue(glass())
     if (mirror) mirror.render(camera)
     const glow = TIERS[tier].bloom
@@ -280,7 +283,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
   }
 
   const api = {
-    contract, canvas, camera, rig, things, look, ambient,
+    contract, canvas, camera, rig, things, look, ambient, guide3d,
     start, stop,
     tag: () => (contract.standin ? 'Stand-in 3D scene: plain shapes until the real export is here' : !contract.baked ? 'Live 3D, first pass: the baked light has not arrived yet' : ''),
     set live(v) { input.enabled = v; if (!v) { things.calm(); onHover(null, null) } },
@@ -381,7 +384,7 @@ export async function mount(root, { theme, onHover, onPick, onLost }) {
     stats: () => { let sum = 0, worst = 0; for (let i = 0; i < filled; i++) { sum += times[i]; worst = Math.max(worst, times[i]) } return { fps: filled ? 1000 / (sum / filled) : 0, worst, frames: drawn, tier, lens: lensWanted && TIERS[tier].lens, width: W, height: H, baked: contract.baked, standin: contract.standin, reseated, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls } },
     // the guide is showing the room round (js/guide.js): the idle sweep and the egg's nudges wait
     quiet(v) { ambient.quiet = v },
-    destroy() { dead = true; stop(); watcher.disconnect(); input.dispose(); ambient.dispose(); if (mirror) mirror.dispose(); bloom.dispose(); canvas.remove(); renderer.dispose() },
+    destroy() { dead = true; stop(); watcher.disconnect(); input.dispose(); ambient.dispose(); guide3d.dispose(); if (mirror) mirror.dispose(); bloom.dispose(); canvas.remove(); renderer.dispose() },
   }
   window.__r3d = api                                            // for site/tools checks (frames a second, state); nothing on the page reads it
   return api

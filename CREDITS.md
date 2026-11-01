@@ -51,6 +51,11 @@ replace them) before publishing the site to a public URL.**
   `css/guide.css`, drawn for this site as inline SVG.
 - **meshoptimizer** — `room.glb` is compressed with gltfpack, and its decoder
   is `vendor/three/addons/libs/meshopt_decoder.module.js` (MIT, Arseny Kapoulkine).
+- **3D guide** — `media/room3d/arjun.glb` and `media/guide/pill.webp`: the same
+  character modelled, rigged and animated in Blender from code for this site
+  (`portfolio-cinema/character/arjun.py`, not published here).
+- **Footsteps and landing** — `media/sfx/*.mp3`, from Kenney's "Impact Sounds"
+  (www.kenney.nl), CC0 1.0 (public domain).
 
 ## Notes
 - The large video masters are not committed to the repository (they exceed

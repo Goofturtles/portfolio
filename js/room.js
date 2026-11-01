@@ -177,6 +177,9 @@ export function anchor(id) {
 }
 // while the guide shows the room round, the idle sweep and the egg's nudges wait
 export function quiet(on) { if (r3d) r3d.quiet(on) }
+// the guide in 3D (js/room3d/guide3d.js) and a thing of the room by its id, for js/guide.js
+export function guide3d() { return r3d && r3d.guide3d ? r3d.guide3d : null }
+export function thing(id) { return r3d ? r3d.things.by(id) : null }
 export const live = () => !!r3d
 export const settled = () => !root.hidden && root.classList.contains('in')
 

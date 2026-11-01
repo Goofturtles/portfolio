@@ -16,6 +16,7 @@
 import { CONFIG, reduced, el, voice, setVoice, store, wait } from './config.js'
 import { line } from './icons.js'
 import { createArjun } from './guide/arjun.js'
+import { createArjun3d } from './guide/arjun3d.js'
 import * as room from './room.js'
 
 const DONE = 'pc-tour', DESK = 'pc-tour-desk'
@@ -41,13 +42,47 @@ let ctx = null, gain = null, bufs = {}, decoding = null, ready = {}
 let at = null, run = null, token = 0, offered = false, asking = false, act = () => {}
 const lit = new Set()
 
+// ---- in the room he is 3D (js/room3d/guide3d.js): a figure on the desk, among the things he shows ----------------
+// Wherever the live room is up he walks, hops, points and talks there for real; the drawing (js/guide/arjun.js) is
+// what he is where there is no live room (a phone on the still picture) and on the mini desktop.
+let g3 = null, follow = 0
+const in3d = () => !!g3 && g3.ready && room.live() && app.dataset.place === 'room'
+function want3d() {
+  const a = !g3 && room.guide3d && room.guide3d()
+  if (a) { g3 = a; g3.onPress = () => { if (asking && !run) start(true) }; if (ctx) g3.audio(ctx, gain) }
+  return g3 ? g3.load().then(() => (g3.ready ? g3 : null)) : Promise.resolve(null)
+}
+// the bubble rides over his head while he is in the room
+function track() {
+  if (follow) return
+  const f = () => { follow = 0; if (!in3d() || !layer || layer.hidden) return; at = g3.screen(); reflowBubble(); follow = requestAnimationFrame(f) }
+  follow = requestAnimationFrame(f)
+}
+const stopper = (my) => () => my !== token
+// where he stands for a step in the room, and the thing he shows there
+function spot3(s) {
+  if (s.at === 'pill') {
+    const r = pill && pill.getBoundingClientRect(), o = g3 && document.querySelector('#room canvas') ? document.querySelector('#room canvas').getBoundingClientRect() : null
+    return r && o ? g3.spot(null, { screen: [r.left - o.left + r.width / 2 + 40, r.top - o.top] }) : null
+  }
+  const id = s.at === 'start' ? 'projects' : s.at
+  const p = g3.spot(id, { left: s.at === 'start' ? true : undefined })
+  if (!p) return null
+  const rec = room.thing && room.thing(id)
+  return { ...p, aim: s.at === 'start' ? null : rec ? rec.centre : null }
+}
+async function go3(p, my) {
+  if (reduced()) { g3.place(p.x, p.z); g3.faceCamera(); g3.show(true); return }
+  if (!g3.shown) await g3.enter(p, stopper(my)); else await g3.walkTo(p, stopper(my))
+}
+
 // ---- the layer, the bubble and the pill --------------------------------------------------------------------------
 function build() {
   if (layer) return
   layer = app.appendChild(el('div', 'gd'))
   layer.hidden = true
   posEl = layer.appendChild(el('div', 'gd-pos'))
-  arjun = createArjun()
+  arjun = createArjun3d() || createArjun()      // off the live room he is still the 3D figure, in his own canvas; the drawing only without WebGL
   posEl.appendChild(el('div', 'gd-anc')).appendChild(arjun.el)
   bubble = layer.appendChild(el('div', 'gd-bub'))
   bubble.setAttribute('role', 'dialog'); bubble.setAttribute('aria-label', 'Tour of the room')
@@ -87,9 +122,7 @@ function makePill() {
   pill.type = 'button'
   pill.setAttribute('aria-label', 'Tutorial: a tour of the room with Arjun')
   const face = pill.appendChild(el('span', 'tp-face'))
-  const mini = createArjun()
-  mini.pose('idle')
-  face.appendChild(mini.el)
+  face.appendChild(el('span', 'tp3'))      // his 3D bust (character/arjun.py renders it): still, and now and then a wave
   pill.appendChild(el('span', 'tp-t', 'Tutorial'))
   pill.addEventListener('click', () => start(true))
   // left alone a while in the room, the little Arjun in the pill waves now and then
@@ -100,8 +133,8 @@ function makePill() {
     const now = performance.now()
     if (reduced() || document.hidden || pill.classList.contains('gd-busy') || !room.settled() || now - still < 25000 || now - waved < 42000) return
     waved = now
-    mini.pose('wave'); pill.classList.add('tp-wave')
-    setTimeout(() => { mini.pose('idle'); pill.classList.remove('tp-wave') }, 2600)
+    pill.classList.add('tp-wave')
+    setTimeout(() => { pill.classList.remove('tp-wave') }, 2600)
   }, 1000)
 }
 function mute() {
@@ -213,6 +246,7 @@ function reflowBubble() {
   bubble.style.setProperty('--tail', Math.round(Math.min(bw - 24, Math.max(24, at.x - x))) + 'px')
 }
 function reflow() {
+  if (in3d()) return reflowBubble()
   const s = run ? steps()[run.i] : asking ? STEPS[0] : null
   if (s) { const p = spotFor(s); if (p) { place(p); at = p; arjun.face(p.face); arjun.point(aimAt(p, p.aim)) } }
   reflowBubble()
@@ -234,6 +268,7 @@ function unlock() {
     if (A) { try { ctx = new A(); gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.value = voice() ? 1 : 0 } catch (e) { ctx = null } }
   }
   if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
+  if (ctx && g3) g3.audio(ctx, gain)
   // fetched and decoded one after another in the order he says them, so the first line is ready first
   decoding ||= loadData().then(async (d) => {
     if (!d || !ctx) return
@@ -266,7 +301,7 @@ function speak(name, words, my, onMark) {
   let src = null, t0 = 0
   const started = performance.now()
   if (ctx && bufs[name] && ctx.state === 'running') {
-    src = ctx.createBufferSource(); src.buffer = bufs[name]; src.connect(gain)
+    src = ctx.createBufferSource(); src.buffer = bufs[name]; src.connect(in3d() ? g3.audio(ctx, gain) : gain)
     t0 = ctx.currentTime + 0.03; src.start(t0)
   }
   const clock = () => (src ? ctx.currentTime - t0 : (performance.now() - started) / 1000)
@@ -280,9 +315,10 @@ function speak(name, words, my, onMark) {
       // the mouth follows the voice's loudness (without a recording: a talking rhythm while the words come)
       const v = clip.env ? envAt(clip, t) : t < clip.chunks[0][3] ? 0.35 + 0.35 * Math.sin(t * 17) * Math.sin(t * 5.3) : 0
       mouth += (v - mouth) * 0.55
-      arjun.mouth(Math.max(0, Math.min(1, (mouth - 0.06) * 1.5)))
+      const open = Math.max(0, Math.min(1, (mouth - 0.06) * 1.5))
+      if (in3d()) g3.mouth(open); else arjun.mouth(open)
       if (onMark) { const m = onMark.times.findLastIndex((x) => t >= x); if (m !== mark) { mark = m; onMark.go(m) } }
-      if (t < dur) requestAnimationFrame(f); else { arjun.mouth(0); say(text, text.length); done(true) }
+      if (t < dur) requestAnimationFrame(f); else { arjun.mouth(0); if (g3) g3.mouth(0); say(text, text.length); done(true) }
     }
     requestAnimationFrame(f)
   })
@@ -300,8 +336,10 @@ function open() {
   if (pill) pill.classList.add('gd-busy')
 }
 // the first visit: he walks in, waves, and asks
+let early = false
 export async function offer() {
   makePill()                                                  // the Tutorial pill is there on every visit, seen the tour or not
+  if (!early && room.live()) { early = true; (window.requestIdleCallback || setTimeout)(() => want3d(), { timeout: 6000 }) }      // the 3D figure fetched and readied while the room rests
   if (store.get(DONE) === '1' || run || asking || offered) return
   offered = true
   if (pill) pill.classList.add('gd-busy')                    // on a first visit the pill waits until he has asked
@@ -312,6 +350,19 @@ export async function offer() {
   asking = true
   const my = ++token
   loadData().then((d) => { if (d && d.clips.hello) fetch(d.clips.hello.src).catch(() => {}) })      // his first line is in the cache before he is asked to say it
+  if (await want3d() && in3d()) {
+    if (my !== token) return
+    layer.classList.add('gd-3d')
+    room.quiet(true)
+    const p3 = spot3(STEPS[0])
+    if (!p3) { asking = false; hide(); return }
+    await go3(p3, my)
+    if (my !== token) return
+    g3.faceCamera(); g3.pose('wave')
+    at = g3.screen(); track()
+    showBubble(ASK, `<button type="button" class="gd-b" data-go="no">No thanks</button><button type="button" class="gd-b gd-p" data-go="start">Show me around</button>`)
+    return
+  }
   const p = spotFor(STEPS[0])
   if (!p) { asking = false; hide(); return }
   at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }                    // in from the left edge
@@ -336,7 +387,8 @@ export async function start(fromPress) {
   room.quiet(true)
   open()
   run = { i: -1, stop: null }
-  if (!at) { const p = spotFor(STEPS[0]); if (p) { at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }; if (at) place(at) } }
+  if (await want3d() && in3d()) layer.classList.add('gd-3d')
+  else if (!at) { const p = spotFor(STEPS[0]); if (p) { at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }; if (at) place(at) } }
   await Promise.race([loadData(), wait(1500)])
   await voiceFor('hello', 2000)
   if (run) step(0)
@@ -351,13 +403,26 @@ async function step(i) {
   run.i = i
   const s = list[i], n = `${i + 1} / ${list.length}`
   bubble.hidden = true
-  const p = spotFor(s)
+  const three = in3d()
+  const p = three ? spot3(s) : spotFor(s)
   if (!p) return step(i + 1)
-  await walkTo(p, my)
-  if (my !== token) return
-  arjun.face(p.face)
-  arjun.pose(s.pose || (p.aim ? 'point' : 'idle'))
-  arjun.point(aimAt(p, p.aim))
+  if (three) {
+    g3.mouth(0)
+    await go3(p, my)
+    if (my !== token) return
+    if (s.pose) { g3.faceCamera(); g3.look(null); g3.pose(s.pose) }
+    else if (p.aim) {
+      g3.pointAt(p.aim)
+      wait(1500).then(() => { if (my === token && run) { g3.faceCamera(); g3.look(null); g3.pose('talk') } })      // he shows it, then turns back to you to talk
+    } else { g3.faceCamera(); g3.pose('talk') }
+    at = g3.screen(); track()
+  } else {
+    await walkTo(p, my)
+    if (my !== token) return
+    arjun.face(p.face)
+    arjun.pose(s.pose || (p.aim ? 'point' : 'idle'))
+    arjun.point(aimAt(p, p.aim))
+  }
   if (s.at !== 'start' && s.at !== 'pill') light(s.at, true)
   if (s.at === 'pill' && pill) pill.classList.remove('gd-busy')      // the Tutorial pill he is pointing at is there to see
   const btns = (i > 0 ? `<button type="button" class="gd-b" data-go="back">Back</button>` : '') + `<button type="button" class="gd-b gd-p" data-go="next">${i === list.length - 1 ? 'Done' : 'Next'}</button>`
@@ -365,16 +430,20 @@ async function step(i) {
   showBubble(words, btns, n)
   say(words, 0)
   if (bubble.contains(document.activeElement) || i === 0) bubble.querySelector('[data-go="next"]').focus({ preventScroll: true })
-  let marks = null
+  let marks = null, mark = -1
   if (s.marks) {
     const timed = c || { text: words, dur: words.length * 0.062 + 0.5, chunks: [[0, words.length, 0.15, words.length * 0.062 + 0.2]] }
     const times = s.marks.map(([word]) => timeAt(timed, Math.max(0, words.indexOf(word))))
     marks = { times, go: (m) => {
+      mark = m
       unlightAll()
       if (m < 0) return
       const id = s.marks[m][1], a = room.anchor(id)
       light(id, true)
-      if (a) { const face = a.cx >= at.x ? 1 : -1; arjun.face(face); arjun.pose('point'); arjun.point(aimAt({ ...at, face }, [a.cx, a.cy])) }
+      if (three) {
+        const rec = room.thing && room.thing(id)
+        if (rec) { g3.pointAt(rec.centre); const k = m; wait(1100).then(() => { if (my === token && mark === k) { g3.faceCamera(); g3.look(null); g3.pose('talk') } }) }
+      } else if (a) { const face = a.cx >= at.x ? 1 : -1; arjun.face(face); arjun.pose('point'); arjun.point(aimAt({ ...at, face }, [a.cx, a.cy])) }
     } }
   }
   await voiceFor(s.clip, 1200)
@@ -398,6 +467,22 @@ async function leaveToPill(keys) {
   if (keys && pill) pill.focus({ preventScroll: true })      // the keyboard waits on the pill he goes into
   bubble.hidden = true
   arjun.mouth(0)
+  if (in3d() && g3.shown) {
+    g3.mouth(0)
+    const p3 = !reduced() && spot3({ at: 'pill' })
+    if (p3) {
+      await g3.walkTo(p3, stopper(my))
+      if (my !== token) return
+      g3.faceCamera(); g3.look(null); g3.pose('wave')
+      await wait(900)
+      if (my !== token) return
+      await g3.exit(stopper(my))
+      if (my !== token) return
+    }
+    hide()
+    if (pill) { pill.classList.remove('gd-busy'); pill.classList.remove('tp-pop'); void pill.offsetWidth; pill.classList.add('tp-pop') }
+    return
+  }
   const p = pill && app.dataset.place === 'room' ? spotFor({ at: 'pill' }) : null
   if (p && !reduced()) {
     await walkTo(p, my)
@@ -419,8 +504,10 @@ function hide() {
   run = null; asking = false; at = null
   unlightAll()
   room.quiet(false)
+  if (g3) g3.hide()
+  if (follow) { cancelAnimationFrame(follow); follow = 0 }
   layer.hidden = true
-  layer.classList.remove('gd-show', 'gd-into', 'gd-in')
+  layer.classList.remove('gd-show', 'gd-into', 'gd-in', 'gd-3d')
   bubble.hidden = true
   if (pill) pill.classList.remove('gd-busy')
 }
