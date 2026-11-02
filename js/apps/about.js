@@ -1,7 +1,8 @@
 // About: a profile page in the manner of the Windows 11 Settings profile block and a card column (references:
 // film/ref/ui/board/settings/01-windows11-settings-home.png for the round picture, name and line; board/profile/ for
 // the column of cards). His picture is his own photo, the one on the room's wall (common.js FACE).
-// Every word is his own, from DATA.profile and DATA.record (apps/gen/data.js); nothing is added.
+// Every word is his own, from DATA.profile and DATA.record (apps/gen/data.js); nothing is added but the credit the
+// tortoise guide's licence asks for, at the foot.
 import { el } from '../config.js'
 import { line } from '../icons.js'
 import { esc, out, host, FACE } from './common.js'
@@ -19,6 +20,8 @@ export function mount(box) {
     `<section class="ab-card wide"><h2>Tools</h2>${tags(P.tools)}</section>` +
     `<section class="ab-card wide rows"><h2>Find him</h2>${row('contact', 'Email', L.email, 'mailto:' + L.email)}${row('github', 'GitHub', host(L.github), L.github)}${row('linkedin', 'LinkedIn', host(L.linkedin), L.linkedin)}` +
     `${row('medium', 'Medium', host(L.medium), L.medium)}${w ? row('writing', w.project, w.summary, w.href) : ''}</section></div>` +
-    `<p class="ab-note">${esc(P.privacyNote)}</p></div>`
+    `<p class="ab-note">${esc(P.privacyNote)}</p>` +
+    // the one line not his: the credit the room's tortoise guide's licence asks for (CC BY 4.0)
+    `<p class="ab-note">The tortoise guide is based on <a href="https://sketchfab.com/3d-models/tortoise-turtle-031b140380654dedb3b18e7cdd8c190c" target="_blank" rel="noopener">“Tortoise - turtle”</a> by <a href="https://sketchfab.com/dalez92" target="_blank" rel="noopener">Daniel Zuleta Art</a>, licensed under <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, rigged and animated for this site.</p></div>`
   return { title: 'About', show() {}, focus() { root.focus({ preventScroll: true }) } }
 }

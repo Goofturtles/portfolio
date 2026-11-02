@@ -51,10 +51,12 @@ replace them) before publishing the site to a public URL.**
   `css/guide.css`, drawn for this site as inline SVG.
 - **meshoptimizer** — `room.glb` is compressed with gltfpack, and its decoder
   is `vendor/three/addons/libs/meshopt_decoder.module.js` (MIT, Arseny Kapoulkine).
-- **3D guide** — `media/room3d/turtle.glb` and `media/guide/pill.webp`: a
-  realistic tortoise modelled, coloured, skinned and animated in Blender from
-  code for this site (`portfolio-cinema/character/turtle.py`, not published
-  here); no scans, no AI-generated models.
+- **3D guide (the tortoise)** — `media/room3d/tortoise.glb` and `media/guide/pill.webp`.
+  This work is based on "Tortoise - turtle"
+  (https://sketchfab.com/3d-models/tortoise-turtle-031b140380654dedb3b18e7cdd8c190c) by Daniel Zuleta Art
+  (https://sketchfab.com/dalez92) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+  Changes: turned, scaled, textures resized, rigged and animated for this site
+  (`portfolio-cinema/character/real/rig.py`, not published here). Also credited on the site, in About.
 - **Footsteps and landing** — `media/sfx/*.mp3`, from Kenney's "Impact Sounds"
   (www.kenney.nl), CC0 1.0 (public domain).
 

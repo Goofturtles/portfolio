@@ -1,4 +1,4 @@
-// The guide (the realistic tortoise, character/turtle.py), where the live room cannot hold him (Arjun, 2026-11-01: "I want the arjun character to be 3d
+// The guide (the tortoise: "Tortoise - turtle" by Daniel Zuleta Art, CC BY 4.0, rigged in character/real/rig.py), where the live room cannot hold him (Arjun, 2026-11-01: "I want the arjun character to be 3d
 // too"): on the mini desktop (its one-time tip) and on a device that shows the still picture of the room. The same
 // model as the figure on the desk (media/room3d/arjun.glb, made by character/arjun.py), in its own small canvas, lit
 // like a studio shot: a soft sky, a key from the front left, the room's lavender and pink from behind.
@@ -13,10 +13,10 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { reduced } from '../config.js'
 
-const SRC = 'media/room3d/turtle.glb'
-const FRAME = 0.9                       // the canvas is this many units tall (his carapace is 1 unit long, his shell's top 0.52 up)
-const ASPECT = 1.7                      // its width over its height: room for him side on, head out
-const WALK_UNITS = 0.1882, WALK_RATE = 2.6, STEP_S = 0.25 / WALK_RATE    // character/turtle.py: a cycle of four footfalls
+const SRC = 'media/room3d/tortoise.glb'
+const FRAME = 0.95                      // the canvas is this many units tall (he is 1.5 units long, his shell's top 0.71 up)
+const ASPECT = 1.8                      // its width over its height: room for him side on, head out
+const WALK_UNITS = 0.2252, WALK_RATE = 1.9, STEP_S = 0.25 * 1.2 / WALK_RATE    // character/real/rig.py: a 1.2 s cycle of four footfalls
 
 export function createArjun3d() {
   const el = document.createElement('div')

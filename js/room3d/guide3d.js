@@ -1,7 +1,8 @@
 // Mini Arjun in the room itself (Arjun, 2026-11-01: "I want the arjun character to be 3d", "make the arjun character
 // like actually animated and cool use blender ... for real 3d effect", then "make it like a turtle instead coz i like
-// turtles", then "make it a realistic turtle not cartoon realistic, like on 4 legs and all"). The guide is a realistic
-// tortoise, his carapace 17 cm long, walking on four legs ON the desk: lit by the room's own light in every theme, mirrored by the lacquer, hidden by what stands
+// turtles", "make it a realistic turtle not cartoon realistic, like on 4 legs and all", then "USE A REAL TURTLE MODEL"
+// with the one he chose: "Tortoise - turtle" by Daniel Zuleta Art, CC BY 4.0, https://skfb.ly/ouHBU). The guide is that
+// textured tortoise, rigged and animated for the room (character/real/rig.py), about 21 cm snout to tail, ON the desk: lit by the room's own light in every theme, mirrored by the lacquer, hidden by what stands
 // in front of him, his shadow on the desk. Made in Blender from code (character/arjun.py -> media/room3d/arjun.glb):
 // rigid rounded parts on an armature, eight clips (idle walk hop wave point cheer talk react). What the site adds live:
 //   moving   he finds his way round the things on the desk (a grid over the desk, the same footprints the egg rolls
@@ -20,11 +21,11 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { GLASS_LAYER } from './post.js'
 
-const SRC = 'media/room3d/turtle.glb'
-const S = 0.17                            // metres a unit: his carapace is 1 unit long (character/turtle.py)
-const HEIGHT = 0.52 * S                   // to the top of his shell
-const WALK_UNITS = 0.1882                 // the walk clip's own speed, carapace lengths a second (character/turtle.py prints it)
-const WALK_RATE = 2.6, RUN_RATE = 3.4     // the clip played brisker (a busy little tortoise), faster on long trips; the root moves to match
+const SRC = 'media/room3d/tortoise.glb'
+const S = 0.14                            // metres a unit: he is 1.5 units snout to tail (character/real/prep.py)
+const HEIGHT = 0.71 * S                   // to the top of his shell
+const WALK_UNITS = 0.2252                 // the walk clip's own speed, units a second (character/real/rig.py prints it)
+const WALK_RATE = 1.9, RUN_RATE = 2.5     // the clip played a little brisker, faster on long trips; the root moves to match
 const CELL = 0.02, CLEAR = 0.075, EDGE = 0.06
 const TAU = Math.PI * 2
 
@@ -37,6 +38,14 @@ in vec3 position, normal;
 #ifdef VCOL
 in vec4 color;
 out vec3 vCol;
+#endif
+#if defined(MAP) || defined(NMAP)
+in vec2 uv;
+out vec2 vUv;
+#endif
+#ifdef NMAP
+in vec4 tangent;
+out vec4 vT;
 #endif
 #ifdef SKIN
 uniform mat4 bindMatrix, bindMatrixInverse;
@@ -55,7 +64,17 @@ void main() {
   p = sk * p; n = mat3(sk) * n;
 #endif
 #ifdef VCOL
-  vCol = pow(max(color.rgb, 0.), vec3(1. / 2.2));      // the scutes' and the skin's colours, from linear
+  vCol = pow(max(color.rgb, 0.), vec3(1. / 2.2));      // vertex colours, from linear
+#endif
+#if defined(MAP) || defined(NMAP)
+  vUv = uv;
+#endif
+#ifdef NMAP
+  vec3 tg = tangent.xyz;
+  #ifdef SKIN
+  tg = mat3(sk) * tg;
+  #endif
+  vT = vec4(mat3(modelMatrix) * tg, tangent.w);
 #endif
   vec4 w = modelMatrix * p;
   if (uSquash.w != 0.) w.xyz -= uUp * dot(w.xyz - uSquash.xyz, uUp) * uSquash.w;
@@ -76,6 +95,16 @@ in vec3 vW, vN;
 #ifdef VCOL
 in vec3 vCol;
 #endif
+#if defined(MAP) || defined(NMAP)
+in vec2 vUv;
+#endif
+#ifdef MAP
+uniform sampler2D uMap;
+#endif
+#ifdef NMAP
+uniform sampler2D uNMap;
+in vec4 vT;
+#endif
 out vec4 frag;
 vec3 env(vec3 d, float lod) {
   vec2 e = vec2(atan(d.x, -d.z) / 6.28318530718 + .5 + uEnvYaw, .5 - asin(clamp(d.y, -1., 1.)) / 3.14159265359);
@@ -87,8 +116,15 @@ void main() {
 #ifdef VCOL
   albedo *= vCol;
 #endif
+#ifdef MAP
+  albedo *= pow(texture(uMap, vUv).rgb, vec3(1. / 2.2));      // the colour map (sRGB, read as linear), as display values
+#endif
   if (uFade < .999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715)))) > uFade) discard;
   vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+#ifdef NMAP
+  vec3 T = normalize(vT.xyz - N * dot(N, vT.xyz)), Bt = cross(N, T) * vT.w;
+  N = normalize(mat3(T, Bt, N) * (texture(uNMap, vUv).xyz * 2. - 1.));      // the scales and wrinkles of the scan
+#endif
   vec3 V = normalize(cameraPosition - vW);
   vec3 sky = mix(uSkyA, uSkyB, uMix), sun = mix(uSunA, uSunB, uMix), lampC = mix(uLampA, uLampB, uMix);
   vec3 L = uLampPos - vW; float d2 = dot(L, L); vec3 Ld = L * inversesqrt(d2);
@@ -240,7 +276,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   }
   // his steps: each time a foot lands in the walk (the clip's 0 and its half)
   // his steps: each time one of his four feet comes down (the walk clip plants them at these points of its cycle)
-  const PLANTS = [0.05, 0.3, 0.55, 0.8]
+  const PLANTS = [0, 0.25, 0.5, 0.75]
   function steps() {
     if (baseName !== 'walk' || !base || !clips.walk) { lastPhase = -1; return }
     const ph = (base.time / clips.walk.duration) % 1
@@ -259,6 +295,8 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const defines = {}
     if (m.isSkinnedMesh) defines.SKIN = 1
     if (m.geometry.attributes.color) { defines.VCOL = 1; uni.uColor.value.set(1, 1, 1) }
+    if (src && src.map && m.geometry.attributes.uv) { defines.MAP = 1; uni.uMap = { value: src.map } }
+    if (src && src.normalMap && m.geometry.attributes.uv && m.geometry.attributes.tangent) { defines.NMAP = 1; uni.uNMap = { value: src.normalMap } }
     m.material = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, uniforms: uni, defines })
     m.frustumCulled = false
   }
@@ -512,7 +550,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const sx = pos.x, sz = pos.z
     const clip = down ? null : playOnce('climb', { rate: 1.2 })
     if (down) setBase('walk', 0.15)
-    const ms = down ? 900 : 33 / 30 / 1.2 * 1000, t0 = performance.now()
+    const ms = down ? 900 : (clips.climb ? clips.climb.duration : 1.1) / 1.2 * 1000, t0 = performance.now()
     await new Promise((done) => {
       const f = (now) => {
         const k = Math.min(1, (now - t0) / ms), e = k * k * (3 - 2 * k)
@@ -639,8 +677,8 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const r = canvas.getBoundingClientRect()
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     ray.setFromCamera(ndc, camera)
-    va.copy(pos); va.y += lift + 0.25 * S
-    if (ray.ray.distanceToPoint(va) > 0.75 * S) return false
+    va.copy(pos); va.y += lift + 0.32 * S
+    if (ray.ray.distanceToPoint(va) > 0.8 * S) return false
     hits.length = 0
     ray.intersectObject(model, true, hits)
     return hits.length > 0
