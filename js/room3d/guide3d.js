@@ -512,7 +512,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const sx = pos.x, sz = pos.z
     const clip = down ? null : playOnce('climb', { rate: 1.2 })
     if (down) setBase('walk', 0.15)
-    const ms = down ? 900 : 34 / 30 / 1.2 * 1000, t0 = performance.now()
+    const ms = down ? 900 : 33 / 30 / 1.2 * 1000, t0 = performance.now()
     await new Promise((done) => {
       const f = (now) => {
         const k = Math.min(1, (now - t0) / ms), e = k * k * (3 - 2 * k)
