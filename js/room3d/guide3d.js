@@ -25,7 +25,7 @@ const SRC = 'media/room3d/tortoise.glb'
 const S = 0.14                            // metres a unit: he is 1.5 units snout to tail (character/real/prep.py)
 const HEIGHT = 0.71 * S                   // to the top of his shell
 const WALK_UNITS = 0.2252                 // the walk clip's own speed, units a second (character/real/rig.py prints it)
-const WALK_RATE = 1.9, RUN_RATE = 2.5     // the clip played a little brisker, faster on long trips; the root moves to match
+const WALK_RATE = 2.8, RUN_RATE = 3.8     // the clip played brisk (Arjun: "do it faster"), faster on long trips; the root moves to match
 const CELL = 0.02, CLEAR = 0.125, EDGE = 0.115    // clear of everything by half his length (0.21 m snout to tail), whichever way he faces, plus a grid cell's slack
 const TAU = Math.PI * 2
 

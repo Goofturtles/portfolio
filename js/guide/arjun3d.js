@@ -16,7 +16,7 @@ import { reduced } from '../config.js'
 const SRC = 'media/room3d/tortoise.glb'
 const FRAME = 0.95                      // the canvas is this many units tall (he is 1.5 units long, his shell's top 0.71 up)
 const ASPECT = 1.8                      // its width over its height: room for him side on, head out
-const WALK_UNITS = 0.2252, WALK_RATE = 1.9, STEP_S = 0.25 * 1.2 / WALK_RATE    // character/real/rig.py: a 1.2 s cycle of four footfalls
+const WALK_UNITS = 0.2252, WALK_RATE = 2.8, STEP_S = 0.25 * 1.2 / WALK_RATE    // character/real/rig.py: a 1.2 s cycle of four footfalls
 
 export function createArjun3d() {
   const el = document.createElement('div')
