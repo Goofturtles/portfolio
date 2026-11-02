@@ -26,7 +26,7 @@ const S = 0.14                            // metres a unit: he is 1.5 units snou
 const HEIGHT = 0.71 * S                   // to the top of his shell
 const WALK_UNITS = 0.2252                 // the walk clip's own speed, units a second (character/real/rig.py prints it)
 const WALK_RATE = 1.9, RUN_RATE = 2.5     // the clip played a little brisker, faster on long trips; the root moves to match
-const CELL = 0.02, CLEAR = 0.075, EDGE = 0.06
+const CELL = 0.02, CLEAR = 0.125, EDGE = 0.115    // clear of everything by half his length (0.21 m snout to tail), whichever way he faces, plus a grid cell's slack
 const TAU = Math.PI * 2
 
 const VERT = `
@@ -384,7 +384,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     return d
   }
   function makeGrid() {
-    const feet = things.feet || []
+    const feet = (things.footprintsFor ? things.footprintsFor(HEIGHT + 0.015) : things.feet) || []      // all that stands on the desk up to his height
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity
     for (const [x, z] of outline) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z) }
     const nx = Math.ceil((x1 - x0) / CELL), nz = Math.ceil((z1 - z0) / CELL), free = new Uint8Array(nx * nz)
@@ -419,9 +419,30 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     for (let s = 0; s <= n; s++) { const t = s / Math.max(1, n), [i, k] = cellOf(ax + (bx - ax) * t, az + (bz - az) * t); if (!isFree(i, k)) return false }
     return true
   }
-  // A* over the grid, then pulled tight (each corner dropped that a straight line can skip)
+  // which free cells he can walk to from where he stands (the free desk can fall into islands between the things on it)
+  function reachable() {
+    if (!grid) makeGrid()
+    const seen = new Uint8Array(grid.nx * grid.nz), [si, sk] = cellOf(...nearestFree(pos.x, pos.z)), q = [si + sk * grid.nx]
+    if (!isFree(si, sk)) return seen
+    seen[q[0]] = 1
+    for (let h = 0; h < q.length; h++) {
+      const c = q[h], ci = c % grid.nx, ck = Math.floor(c / grid.nx)
+      for (const [di, dk] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const i = ci + di, k = ck + dk, n = i + k * grid.nx; if (isFree(i, k) && !seen[n]) { seen[n] = 1; q.push(n) } }
+    }
+    return seen
+  }
+  const canReach = (seen, x, z) => { const [i, k] = cellOf(x, z); return i >= 0 && k >= 0 && i < grid.nx && k < grid.nz && seen[i + k * grid.nx] === 1 }
+  function nearestReachable(seen, x, z) {
+    let best = null, bd = Infinity
+    for (let c = 0; c < seen.length; c++) { if (!seen[c]) continue; const [cx, cz] = centreOf(c % grid.nx, Math.floor(c / grid.nx)), d = Math.hypot(cx - x, cz - z); if (d < bd) { bd = d; best = [cx, cz] } }
+    return best
+  }
+  // A* over the grid, then pulled tight (each corner dropped that a straight line can skip). A place he cannot get to
+  // is swapped for the nearest one he can: he never walks straight through anything.
   function route(ax, az, bx, bz) {
     if (!grid) makeGrid()
+    const seen = reachable()
+    if (!canReach(seen, bx, bz)) { const n = nearestReachable(seen, bx, bz); if (!n) return []; [bx, bz] = n }
     if (clearLine(ax, az, bx, bz)) return [[bx, bz]]
     const [si, sk] = cellOf(...nearestFree(ax, az)), [ti, tk] = cellOf(bx, bz), N = grid.nx * grid.nz
     const g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), shut = new Uint8Array(N), open = [si + sk * grid.nx]
@@ -445,7 +466,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
         if (gn < g[n]) { g[n] = gn; from[n] = c; if (!open.includes(n)) open.push(n) }
       }
     }
-    if (found < 0) return [[bx, bz]]
+    if (found < 0) return []
     const pts = []
     for (let c = found; c >= 0; c = from[c]) pts.unshift(centreOf(c % grid.nx, Math.floor(c / grid.nx)))
     pts[pts.length - 1] = [bx, bz]
@@ -493,6 +514,27 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     }
     if (!best) { const [x, z] = nearestFree(ox, oz); best = { x, z } }
     return best
+  }
+  function seenSpot(id, opts = {}) {
+    if (!grid) makeGrid()
+    const rec = id && things.by(id)
+    if (!rec || opts.screen) return spotFor(id, opts)
+    const ox = rec.centre.x, oz = rec.centre.z, [cx, cz] = camXZ(), toCam = Math.atan2(cx - ox, cz - oz)
+    const r0 = (rec.onDesk ? rec.radius : 0.05) + 0.115, v = new THREE.Vector3(), ox2 = v.copy(rec.centre).project(camera).x
+    const cands = []
+    for (const side of [1, -1]) for (let a = 30; a <= 110; a += 10) for (let dr = 0; dr < 0.2; dr += 0.02) {
+      const ang = toCam + side * a * Math.PI / 180, x = ox + Math.sin(ang) * (r0 + dr), z = oz + Math.cos(ang) * (r0 + dr)
+      const [i, k] = cellOf(x, z)
+      if (!isFree(i, k)) continue
+      const onLeft = v.set(x, deskY, z).project(camera).x < ox2
+      cands.push({ x, z, score: -Math.abs(a - 62) / 30 - dr * 8 - (opts.left !== undefined && onLeft !== opts.left ? 1.5 : 0) })
+    }
+    const seen = reachable(), ok = cands.filter((c) => canReach(seen, c.x, c.z))
+    ok.sort((p, q) => q.score - p.score)
+    for (const c of ok.slice(0, 14)) { const s = seenFrom(c.x, c.z); if (s.on && !s.by) return { x: c.x, z: c.z } }
+    if (ok[0]) return { x: ok[0].x, z: ok[0].z }
+    const n = nearestReachable(seen, ox, oz)
+    return n ? { x: n[0], z: n[1] } : spotFor(id, opts)
   }
 
   // ---- moving ----
@@ -613,7 +655,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
 
   // ---- the face ----
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), va = new THREE.Vector3(), vb = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0)
-  const LOOK_SHARE = { neck1: 0.25, neck2: 0.3, head: 0.45 }
+  const LOOK_SHARE = { neck1: 0.35, neck2: 0.35, head: 0.3 }      // a long neck turns from its base
   let jaw = null
   const lookBones = [], irises = [], qd = new THREE.Quaternion(), side = new THREE.Vector3(), fwd = new THREE.Vector3()
   const L = { yaw: 0, vy: 0, pitch: 0, vp: 0 }, glance = new THREE.Vector2(), wander = new THREE.Vector2()
@@ -623,15 +665,20 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   function face(dt) {
     if (!head) return
     const live = performance.now() - pointerT < 2500
-    const target = lookAt || (pointerAt && live ? pointerP : camera.position)
     head.getWorldPosition(va)
-    vb.copy(target).sub(va)
-    const want = wrapA(Math.atan2(vb.x, vb.z) - yaw), flat = Math.hypot(vb.x, vb.z)
-    const wp = THREE.MathUtils.clamp(-Math.atan2(vb.y, flat), -0.5, 0.42)
-    // too far round for his neck: standing still, after a moment he turns his body to it
-    if (Math.abs(want) > 1.05 && !moving && !busyHop && !once) { turnT += dt; if (turnT > 0.45) { yawTo = yaw + want * 0.75; turnT = 0 } } else turnT = 0
-    const wy = THREE.MathUtils.clamp(want, -1.1, 1.1)
-    for (let i = 0, n = Math.max(1, Math.ceil(dt / 0.008)); i < n; i++) { spring(L, 'yaw', 'vy', wy, dt / n, 7.5); spring(L, 'pitch', 'vp', wp, dt / n, 7.5) }
+    // walking he looks where he is going; else at what he talks about, else (a little) at the pointer, else at you
+    let wy = 0, wp = 0
+    if (!moving && !busyHop) {
+      const target = lookAt || (pointerAt && live ? pointerP : camera.position)
+      vb.copy(target).sub(va)
+      const want = wrapA(Math.atan2(vb.x, vb.z) - yaw), flat = Math.hypot(vb.x, vb.z)
+      // too far round for his neck: standing still, after a moment he turns his body to it, as a tortoise does
+      if (Math.abs(want) > 1.0 && !once) { turnT += dt; if (turnT > 0.6) { yawTo = yaw + want * 0.8; turnT = 0 } } else turnT = 0
+      const k = lookAt ? 1 : 0.6                                       // the pointer and you only half turn him
+      wy = THREE.MathUtils.clamp(want, -0.75, 0.75) * k
+      wp = THREE.MathUtils.clamp(-Math.atan2(vb.y, flat) * 0.7, -0.3, 0.25) * k
+    } else turnT = 0
+    for (let i = 0, n = Math.max(1, Math.ceil(dt / 0.008)); i < n; i++) { spring(L, 'yaw', 'vy', wy, dt / n, 4.2); spring(L, 'pitch', 'vp', wp, dt / n, 4.2) }
     // the eyes lead the head: they are already where it is going, and drift a little on their own when nothing holds them
     wanderT -= dt
     if (wanderT < 0) { wander.set((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.4); wanderT = lookAt ? 3 : 1.4 + Math.random() * 2.6; if (Math.random() < 0.45) wander.set(0, 0) }
@@ -645,7 +692,6 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     for (const [b, share] of lookBones) {
       b.parent.getWorldQuaternion(qa); b.getWorldQuaternion(qb)
       qc.setFromAxisAngle(Y, L.yaw * share).multiply(qd.setFromAxisAngle(side, L.pitch * share))
-      if (b === head) qc.multiply(qd.setFromAxisAngle(fwd, THREE.MathUtils.clamp(-L.vy * 0.05, -0.12, 0.12)))
       b.quaternion.copy(qa.invert().multiply(qc.multiply(qb)))
       b.updateMatrixWorld(true)
     }
@@ -723,6 +769,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     actor.updateMatrixWorld(true)
     face(dt)
     struck(dt)
+    halos_update(dt)
     const air = Math.max(0, lift)
     shadow.position.set(pos.x, deskY + 0.0004, pos.z)
     const sw = S * (1 + air * 2)
@@ -734,6 +781,92 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     hear()
   }
 
+  // ---- what he is talking about, lit: a soft ring of light round it, breathing, seen over everything ----
+  const HALO_VERT = `
+precision highp float;
+uniform mat4 modelViewMatrix, projectionMatrix;
+in vec3 position; in vec2 uv;
+out vec2 vUv;
+void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`
+  const HALO_FRAG = `
+precision highp float;
+uniform float uOn, uT;
+uniform vec3 uTint;
+in vec2 vUv;
+out vec4 frag;
+void main() {
+  float r = length(vUv - .5) * 2.;
+  float ring = exp(-pow((r - .86) / .07, 2.)), glow = exp(-pow((r - .8) / .2, 2.)) * .35, fill = smoothstep(1., .2, r) * .05;
+  float a = (ring * .8 + glow * .8 + fill) * uOn * (.7 + .3 * sin(uT * 3.6));
+  frag = vec4(uTint * a, 0.);
+}`
+  const halos = new Map()
+  function haloFor(id) {
+    let h = halos.get(id)
+    if (h) return h
+    const rec = things.by(id)
+    if (!rec) return null
+    const u = { uOn: { value: 0 }, uT: { value: 0 }, uTint: { value: new THREE.Vector3(1.0, 0.96, 0.86) } }
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: HALO_VERT, fragmentShader: HALO_FRAG, uniforms: u,
+      transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor }))
+    m.name = 'guide3d_halo_' + id; m.renderOrder = 20; m.frustumCulled = false; m.visible = false
+    m.layers.set(GLASS_LAYER)
+    scene.add(m)
+    h = { rec, mesh: m, u, to: 0 }
+    halos.set(id, h)
+    return h
+  }
+  function halos_update(dt) {
+    for (const h of halos.values()) {
+      h.u.uOn.value += (h.to - h.u.uOn.value) * (1 - Math.exp(-dt * 6))
+      h.mesh.visible = h.u.uOn.value > 0.01
+      if (!h.mesh.visible) continue
+      h.u.uT.value += dt
+      h.mesh.position.copy(h.rec.centre)
+      h.mesh.quaternion.copy(camera.quaternion)
+      h.mesh.scale.setScalar(Math.max(0.12, Math.min(0.55, h.rec.bound * 2.05)))
+    }
+  }
+
+  // ---- being seen: is his head on the page, and not behind something (glass does not hide him) ----
+  const seenRay = new THREE.Raycaster(), seenHits = []
+  const solid = () => things.records.filter((r) => r.meshes.some((m) => !m.mesh.layers.isEnabled(GLASS_LAYER)))
+  function seenFrom(x, z, y = 0) {
+    va.set(x, deskY + y + HEIGHT * 0.75, z)
+    vb.copy(va).project(camera)
+    if (Math.abs(vb.x) > 0.9 || Math.abs(vb.y) > 0.86 || vb.z > 1) return { on: false, by: null }
+    const d = camera.position.distanceTo(va)
+    seenRay.set(camera.position, vb.copy(va).sub(camera.position).normalize()); seenRay.far = d - 0.03
+    for (const r of solid()) {
+      seenHits.length = 0
+      r.node.updateWorldMatrix(true, true)
+      for (const m of r.meshes) { if (!m.mesh.layers.isEnabled(GLASS_LAYER)) m.mesh.raycast(seenRay, seenHits) }
+      if (seenHits.length) return { on: true, by: r }
+    }
+    return { on: true, by: null }
+  }
+  // hidden behind something, he climbs up its back until his head and shoulders show over its top edge
+  let peeked = 0
+  async function peek(by) {
+    const box = new THREE.Box3().setFromObject(by.node)
+    const rise = Math.max(0, box.max.y - deskY - HEIGHT * 0.45)
+    if (rise <= 0.005) return false
+    peeked = rise
+    playOnce('point', { hold: true })                      // his neck stretched up over the edge
+    const from = lift, t0 = performance.now()
+    await new Promise((done) => { const f = (now) => { const k = Math.min(1, (now - t0) / 650), e = 1 - (1 - k) * (1 - k); lift = from + (rise - from) * e; if (k < 1) requestAnimationFrame(f); else done() }; requestAnimationFrame(f) })
+    faceCamera()
+    return true
+  }
+  async function unpeek() {
+    if (!peeked) return
+    const from = lift, t0 = performance.now()
+    peeked = 0
+    await new Promise((done) => { const f = (now) => { const k = Math.min(1, (now - t0) / 500), e = k * k; lift = from * (1 - e); if (k < 1) requestAnimationFrame(f); else done() }; requestAnimationFrame(f) })
+    lift = 0
+    release(0.2)
+  }
+
   const api = {
     load,
     get ready() { return !!model },
@@ -741,9 +874,15 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     get position() { return pos },
     show(v) { fadeTo = v ? 1 : 0 },
     get shown() { return fadeTo > 0 },
-    hide() { fadeTo = 0; fade = 0; actor.visible = shadow.visible = false; lookAt = null; mouthV = 0; busyHop = false; moving = false; settle(); setBase('idle', 0); release(0) },
+    hide() { for (const h of halos.values()) h.to = 0; peeked = 0; fadeTo = 0; fade = 0; actor.visible = shadow.visible = false; lookAt = null; mouthV = 0; busyHop = false; moving = false; settle(); setBase('idle', 0); release(0) },
     place(x, z, faceTarget) { pos.set(x, deskY, z); lift = 0; if (faceTarget) { faceTo(faceTarget.x, faceTarget.z); yaw = yawTo } },
-    spot: spotFor,
+    spot: seenSpot,
+    // a thing of the room lit while he talks about it (js/guide.js light())
+    highlight(id, on) { const h = haloFor(id); if (h) h.to = on ? 1 : 0 },
+    // where he stands now: on the page, and what (if anything) hides him
+    seen() { return seenFrom(pos.x, pos.z, lift) },
+    peek, unpeek,
+    get peeked() { return peeked > 0 },
     walkTo,
     // up onto the desk from below its front edge, near a spot (the first visit's entrance)
     async enter(to, stop) {
@@ -806,9 +945,9 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     set onPress(fn) { onPress = fn },
     // his voice through the room's sound: give the guide's AudioContext and where it should end up; returns the node to play into
     audio,
-    get debug() { return { actor, model, mixer, clips, head } },      // for site/tools checks only
+    get debug() { return { actor, model, mixer, clips, head, get yaw() { return yaw }, free: (x, z) => { if (!grid) makeGrid(); const [i, k] = cellOf(x, z); return isFree(i, k) } } },      // for site/tools checks only
     update,
-    dispose() { root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerdown', onDown, true); scene.remove(actor); scene.remove(shadow); scene.remove(puffs); if (panner) panner.disconnect() },
+    dispose() { root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerdown', onDown, true); scene.remove(actor); scene.remove(shadow); scene.remove(puffs); for (const h of halos.values()) scene.remove(h.mesh); if (panner) panner.disconnect() },
   }
   return api
 }

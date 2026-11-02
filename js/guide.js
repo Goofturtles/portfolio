@@ -346,7 +346,7 @@ function speak(name, words, my, onMark) {
 }
 
 // ---- the tour ------------------------------------------------------------------------------------------------
-function light(id, on) { if (on === lit.has(id)) return; on ? lit.add(id) : lit.delete(id); room.highlight(id, on) }
+function light(id, on) { if (on === lit.has(id)) return; on ? lit.add(id) : lit.delete(id); room.highlight(id, on); if (g3 && g3.highlight) g3.highlight(id, on) }
 function unlightAll() { for (const id of [...lit]) light(id, false) }
 const steps = () => STEPS.filter((s) => !s.live || room.live())
 
@@ -433,8 +433,19 @@ async function step(i) {
   if (!p) return step(i + 1)
   if (three) {
     g3.mouth(0)
+    if (g3.peeked) await g3.unpeek()
     await go3(p, my)
     if (my !== token) return
+    // not to be seen there (behind the laptop, under the frames): he climbs up over what hides him and calls out
+    const seen = g3.seen()
+    if (seen.on && seen.by && await g3.peek(seen.by)) {
+      if (my !== token) return
+      at = g3.screen(); track()
+      showBubble('Over here!', '', '')
+      await voiceFor('over', 600)
+      await speak('over', 'Over here!', my)
+      if (my !== token) return
+    }
     if (s.pose) { g3.faceCamera(); g3.look(null); g3.pose(s.pose) }
     else if (p.aim) {
       g3.pointAt(p.aim)
@@ -494,6 +505,7 @@ async function leaveToPill(keys) {
   arjun.mouth(0)
   if (in3d() && g3.shown) {
     g3.mouth(0)
+    if (g3.peeked) await g3.unpeek()
     const p3 = !reduced() && spot3({ at: 'pill' })
     if (p3) {
       await g3.walkTo(p3, stopper(my))
