@@ -283,7 +283,7 @@ export function createThings(scene, camera, contract) {
       const on = rec === hot || rec.forced > 0 || (rec.sweepAt >= 0 && clock >= rec.sweepAt && clock < rec.sweepAt + 0.56)
       rec.hover.time = on ? tin : tout; rec.hover.to = on ? 1 : 0
       rec.group.uHover.value = rec.hover.step(dt)
-      if (rec.liftBy) { rec.lift.to = on ? 1 : 0; rec.node.position.y = rec.rest.y + rec.lift.step(dt) * rec.liftBy }
+      if (rec.liftBy) { rec.lift.to = rec.forced > 0 ? 6 : on ? 1 : 0; rec.node.position.y = rec.rest.y + rec.lift.step(dt) * rec.liftBy }      // named by the guide it floats up
       // what the camera is about to fly through thins out of its way
       const d = flying ? camera.position.distanceTo(rec.centre) : 1e9
       rec.group.uFade.value = rec === flying || !flying ? 1 : THREE.MathUtils.smoothstep(d, rec.bound + 0.12, rec.bound + 0.5)

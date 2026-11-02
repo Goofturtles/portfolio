@@ -346,7 +346,31 @@ function speak(name, words, my, onMark) {
 }
 
 // ---- the tour ------------------------------------------------------------------------------------------------
-function light(id, on) { if (on === lit.has(id)) return; on ? lit.add(id) : lit.delete(id); room.highlight(id, on); if (g3 && g3.highlight) g3.highlight(id, on) }
+function light(id, on) { if (on === lit.has(id)) return; on ? lit.add(id) : lit.delete(id); room.highlight(id, on); backdrop(on ? id : [...lit].pop() || null) }
+// the room dims round what he talks about, the thing itself left in its own light (and floating up: things.js)
+let spotEl = null, spotId = null, spotRaf = 0
+function backdrop(id) {
+  spotId = id
+  if (!spotEl && layer) { spotEl = layer.insertBefore(el('div', 'gd-spot'), layer.firstChild); spotEl.setAttribute('aria-hidden', 'true') }
+  if (!spotEl) return
+  spotEl.classList.toggle('on', !!id)
+  if (id && !spotRaf) {
+    const f = () => {
+      spotRaf = 0
+      if (!spotId) return
+      const a = room.anchor(spotId)
+      if (a) {
+        const w = Math.max(110, (a.x1 - a.x0) * 1.05), h = Math.max(110, (a.y1 - a.y0) * 1.05)
+        spotEl.style.setProperty('--sx', ((a.x0 + a.x1) / 2).toFixed(1) + 'px'); spotEl.style.setProperty('--sy', ((a.y0 + a.y1) / 2).toFixed(1) + 'px')
+        spotEl.style.setProperty('--sw', w.toFixed(1) + 'px'); spotEl.style.setProperty('--sh', h.toFixed(1) + 'px')
+      }
+      const g = in3d() ? g3.screen() : null                     // and he stays in the light too
+      if (g) { spotEl.style.setProperty('--gx', g.x.toFixed(1) + 'px'); spotEl.style.setProperty('--gy', (g.y - g.h / 2).toFixed(1) + 'px'); spotEl.style.setProperty('--gw', (g.h * 2.6).toFixed(1) + 'px'); spotEl.style.setProperty('--gh', (g.h * 1.8).toFixed(1) + 'px') }
+      spotRaf = requestAnimationFrame(f)
+    }
+    spotRaf = requestAnimationFrame(f)
+  }
+}
 function unlightAll() { for (const id of [...lit]) light(id, false) }
 const steps = () => STEPS.filter((s) => !s.live || room.live())
 

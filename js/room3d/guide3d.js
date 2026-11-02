@@ -26,7 +26,9 @@ const S = 0.14                            // metres a unit: he is 1.5 units snou
 const HEIGHT = 0.71 * S                   // to the top of his shell
 const WALK_UNITS = 0.2252                 // the walk clip's own speed, units a second (character/real/rig.py prints it)
 const WALK_RATE = 1.9, RUN_RATE = 2.5     // the clip played a little brisker, faster on long trips; the root moves to match
-const CELL = 0.02, CLEAR = 0.125, EDGE = 0.115    // clear of everything by half his length (0.21 m snout to tail), whichever way he faces, plus a grid cell's slack
+const CELL = 0.02
+const WALK_CLEAR = 0.085, WALK_EDGE = 0.07       // walking he faces the way he goes: half his width and a margin keep him off things
+const STAND_CLEAR = 0.125, STAND_EDGE = 0.11     // where he stops he turns and faces things: half his length (0.21 m) and a grid cell's slack
 const TAU = Math.PI * 2
 
 const VERT = `
@@ -154,7 +156,7 @@ out vec4 frag;
 void main() {
   if (uDepth.x > 0.) discard;
   float r = length(vUv - .5) * 2.;
-  float k = (1. - smoothstep(.15, 1., r)) * uDark;
+  float k = (1. - smoothstep(0., .9, r)) * (1. - smoothstep(0., .9, r)) * uDark * 1.6;
   frag = vec4(vec3(1. - k), 1.);
 }`
 const SHADOW_VERT = `
@@ -390,19 +392,22 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const nx = Math.ceil((x1 - x0) / CELL), nz = Math.ceil((z1 - z0) / CELL), free = new Uint8Array(nx * nz)
     for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
       const x = x0 + (i + 0.5) * CELL, z = z0 + (k + 0.5) * CELL
-      if (!inside(outline, x, z) || edgeDist(outline, x, z) < EDGE) continue
-      let ok = true
+      if (!inside(outline, x, z)) continue
+      const edge = edgeDist(outline, x, z)
+      if (edge < WALK_EDGE) continue
+      let d = Infinity
       for (const f of feet) {
-        if (Math.hypot(x - f.x, z - f.z) > f.reach + CLEAR) continue
-        if (inside(f.poly, x, z) || edgeDist(f.poly, x, z) < CLEAR) { ok = false; break }
+        if (Math.hypot(x - f.x, z - f.z) > f.reach + STAND_CLEAR) continue
+        d = Math.min(d, inside(f.poly, x, z) ? -1 : edgeDist(f.poly, x, z))
       }
-      if (ok) free[i + k * nx] = 1
+      if (d >= WALK_CLEAR) free[i + k * nx] = d >= STAND_CLEAR && edge >= STAND_EDGE ? 2 : 1      // 1: he can walk here, 2: and stop here
     }
     grid = { x0, z0, nx, nz, free }
   }
   const cellOf = (x, z) => [Math.floor((x - grid.x0) / CELL), Math.floor((z - grid.z0) / CELL)]
   const centreOf = (i, k) => [grid.x0 + (i + 0.5) * CELL, grid.z0 + (k + 0.5) * CELL]
-  const isFree = (i, k) => i >= 0 && k >= 0 && i < grid.nx && k < grid.nz && grid.free[i + k * grid.nx] === 1
+  const isFree = (i, k) => i >= 0 && k >= 0 && i < grid.nx && k < grid.nz && grid.free[i + k * grid.nx] >= 1
+  const isStand = (i, k) => i >= 0 && k >= 0 && i < grid.nx && k < grid.nz && grid.free[i + k * grid.nx] === 2
   function nearestFree(x, z) {
     if (!grid) makeGrid()
     const [ci, ck] = cellOf(x, z)
@@ -434,7 +439,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   const canReach = (seen, x, z) => { const [i, k] = cellOf(x, z); return i >= 0 && k >= 0 && i < grid.nx && k < grid.nz && seen[i + k * grid.nx] === 1 }
   function nearestReachable(seen, x, z) {
     let best = null, bd = Infinity
-    for (let c = 0; c < seen.length; c++) { if (!seen[c]) continue; const [cx, cz] = centreOf(c % grid.nx, Math.floor(c / grid.nx)), d = Math.hypot(cx - x, cz - z); if (d < bd) { bd = d; best = [cx, cz] } }
+    for (let c = 0; c < seen.length; c++) { if (!seen[c] || grid.free[c] !== 2) continue; const [cx, cz] = centreOf(c % grid.nx, Math.floor(c / grid.nx)), d = Math.hypot(cx - x, cz - z); if (d < bd) { bd = d; best = [cx, cz] } }
     return best
   }
   // A* over the grid, then pulled tight (each corner dropped that a straight line can skip). A place he cannot get to
@@ -507,7 +512,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     for (const side of [1, -1]) for (let a = 40; a <= 100; a += 10) for (let dr = 0; dr < 0.12; dr += 0.02) {
       const ang = toCam + side * a * Math.PI / 180, x = ox + Math.sin(ang) * (r0 + dr), z = oz + Math.cos(ang) * (r0 + dr)
       const [i, k] = cellOf(x, z)
-      if (!isFree(i, k)) continue
+      if (!isStand(i, k)) continue
       const onLeft = v.set(x, deskY, z).project(camera).x < ox2      // left of the thing on the page
       const score = -Math.abs(a - 62) / 30 - dr * 12 - (opts.left !== undefined && onLeft !== opts.left ? 1.5 : 0)
       if (score > bs) { bs = score; best = { x, z } }
@@ -525,7 +530,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     for (const side of [1, -1]) for (let a = 30; a <= 110; a += 10) for (let dr = 0; dr < 0.2; dr += 0.02) {
       const ang = toCam + side * a * Math.PI / 180, x = ox + Math.sin(ang) * (r0 + dr), z = oz + Math.cos(ang) * (r0 + dr)
       const [i, k] = cellOf(x, z)
-      if (!isFree(i, k)) continue
+      if (!isStand(i, k)) continue
       const onLeft = v.set(x, deskY, z).project(camera).x < ox2
       cands.push({ x, z, score: -Math.abs(a - 62) / 30 - dr * 8 - (opts.left !== undefined && onLeft !== opts.left ? 1.5 : 0) })
     }
@@ -656,6 +661,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   // ---- the face ----
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), va = new THREE.Vector3(), vb = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0)
   const LOOK_SHARE = { neck1: 0.35, neck2: 0.35, head: 0.3 }      // a long neck turns from its base
+  const LOOK = false                       // off: his head moves only as his clips move it; he turns his whole body to face things
   let jaw = null
   const lookBones = [], irises = [], qd = new THREE.Quaternion(), side = new THREE.Vector3(), fwd = new THREE.Vector3()
   const L = { yaw: 0, vy: 0, pitch: 0, vp: 0 }, glance = new THREE.Vector2(), wander = new THREE.Vector2()
@@ -689,7 +695,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     // the turn shared down the chest, the neck and the head, each turned in the world (whatever its own axes are),
     // the head tipping a little into a quick turn
     side.set(Math.cos(yaw), 0, -Math.sin(yaw)); fwd.set(Math.sin(yaw), 0, Math.cos(yaw))
-    for (const [b, share] of lookBones) {
+    for (const [b, share] of LOOK ? lookBones : []) {
       b.parent.getWorldQuaternion(qa); b.getWorldQuaternion(qb)
       qc.setFromAxisAngle(Y, L.yaw * share).multiply(qd.setFromAxisAngle(side, L.pitch * share))
       b.quaternion.copy(qa.invert().multiply(qc.multiply(qb)))
@@ -773,7 +779,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const air = Math.max(0, lift)
     shadow.position.set(pos.x, deskY + 0.0004, pos.z)
     const sw = S * (1 + air * 2)
-    shadow.scale.set(sw * 0.95, 1, sw * 1.3)
+    shadow.scale.set(sw * 0.78, 1, sw * 1.05)
     shadow.rotation.y = yaw
     shadowU.uDark.value = 0.42 * fade * Math.max(0, 1 - air * 9) * (lift < -0.01 ? 0 : 1)
     if (puffs.visible) { puffU.uT.value += dt; puffU.uPx.value = canvas.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)); if (puffU.uT.value > 0.8) puffs.visible = false }

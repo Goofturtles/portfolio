@@ -441,3 +441,10 @@ html.calm .ga, html.calm .ga * { animation: none !important; transition: none !i
 /* the 3D figure in his own canvas (js/guide/arjun3d.js), where the live room cannot hold him */
 .ga.ga3 { aspect-ratio: 1.8; }      /* the tortoise, side on */
 .ga.ga3 canvas { display: block; width: 100%; height: 100%; }
+/* the backdrop while he talks about a thing: the room dimmed softly round it (js/guide.js backdrop) */
+.gd .gd-spot { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s ease; background: rgba(14, 10, 30, .4);
+  -webkit-mask-image: radial-gradient(ellipse var(--sw, 120px) var(--sh, 120px) at var(--sx, 50%) var(--sy, 50%), transparent 55%, #000 100%), radial-gradient(ellipse var(--gw, 0px) var(--gh, 0px) at var(--gx, -99px) var(--gy, -99px), transparent 55%, #000 100%);
+          mask-image: radial-gradient(ellipse var(--sw, 120px) var(--sh, 120px) at var(--sx, 50%) var(--sy, 50%), transparent 55%, #000 100%), radial-gradient(ellipse var(--gw, 0px) var(--gh, 0px) at var(--gx, -99px) var(--gy, -99px), transparent 55%, #000 100%);
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+.gd .gd-spot.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .gd .gd-spot { transition: none; } }
