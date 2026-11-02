@@ -1,4 +1,4 @@
-// Mini Arjun, the 3D one, where the live room cannot hold him (Arjun, 2026-11-01: "I want the arjun character to be 3d
+// The guide (the realistic tortoise, character/turtle.py), where the live room cannot hold him (Arjun, 2026-11-01: "I want the arjun character to be 3d
 // too"): on the mini desktop (its one-time tip) and on a device that shows the still picture of the room. The same
 // model as the figure on the desk (media/room3d/arjun.glb, made by character/arjun.py), in its own small canvas, lit
 // like a studio shot: a soft sky, a key from the front left, the room's lavender and pink from behind.
@@ -11,11 +11,12 @@
 // It draws only while it is on the page and seen; it lets go of its WebGL context in destroy().
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { reduced } from '../config.js'
 
-const SRC = 'media/room3d/arjun.glb'
-const FRAME = 1.22                      // the canvas is this many figure heights tall: room for his quiff and a raised hand
-const ASPECT = 0.62                     // its width over its height, as the drawing's
-const WALK_UNITS = 0.575, WALK_RATE = 1.3, STEP_S = 0.4 / WALK_RATE      // character/arjun.py: 0.23 of his height a step
+const SRC = 'media/room3d/turtle.glb'
+const FRAME = 0.9                       // the canvas is this many units tall (his carapace is 1 unit long, his shell's top 0.52 up)
+const ASPECT = 1.7                      // its width over its height: room for him side on, head out
+const WALK_UNITS = 0.1882, WALK_RATE = 2.6, STEP_S = 0.25 / WALK_RATE    // character/turtle.py: a cycle of four footfalls
 
 export function createArjun3d() {
   const el = document.createElement('div')
@@ -30,33 +31,37 @@ export function createArjun3d() {
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(16, ASPECT, 0.5, 20)
   const dist = FRAME / 2 / Math.tan(THREE.MathUtils.degToRad(8))
-  camera.position.set(0, FRAME / 2 - 0.02, dist); camera.lookAt(0, FRAME / 2 - 0.02, 0)
+  camera.position.set(0, FRAME / 2 + dist * 0.12, dist); camera.lookAt(0, FRAME / 2 - 0.08, 0)
   scene.add(new THREE.HemisphereLight(0xe6ecff, 0x6d6078, 1.35))
   const key = new THREE.DirectionalLight(0xfff4ea, 1.9); key.position.set(-1.2, 2.2, 2.4); scene.add(key)
   const rimA = new THREE.DirectionalLight(0xb2a8f4, 1.4); rimA.position.set(-2, 1.4, -2); scene.add(rimA)
   const rimB = new THREE.DirectionalLight(0xff9bd2, 1.1); rimB.position.set(2, 1.2, -1.6); scene.add(rimB)
   const holder = new THREE.Group(); scene.add(holder)
 
+  let failed = false
   let model = null, mixer = null, clips = {}, base = null, baseName = '', once = null
-  let yaw = 0, yawTo = 0, facing = 1, mouthV = 0, blinkT = 2, blink = 0, eyes = [], mouthNode = null, walking = false
+  let yaw = 0, yawTo = 0, facing = 1, mouthV = 0, blinkT = 2, blink = 0, eyes = [], jaw = null, walking = false
   new GLTFLoader().loadAsync(SRC).then((g) => {
     model = g.scene
     model.traverse((m) => {
       if (!m.isMesh) return
       if (/^m_eye/.test(m.name)) eyes.push(m)
-      if (m.name === 'm_mouth') mouthNode = m
       if (m.material && /shine/.test(m.material.name)) { m.material.emissive = new THREE.Color(1, 1, 1); m.material.emissiveIntensity = 0.9 }
     })
     holder.add(model)
+    jaw = model.getObjectByName('jaw')
     mixer = new THREE.AnimationMixer(model)
     for (const c of g.animations) clips[c.name] = c
     setBase(want)
-  }).catch(() => {})
+  }).catch(() => { failed = true })
 
   let want = 'idle'
+  // with reduced motion he holds still poses (the drawing did): each clip shown at one frame, nothing playing
+  function still(a, name) { a.time = name === 'point' ? a.getClip().duration : a.getClip().duration * 0.25; a.paused = true }
   function setBase(name) {
     want = name
     if (!mixer || !clips[name]) return
+    if (reduced()) { mixer.stopAllAction(); const a = mixer.clipAction(clips[name]); a.reset().play(); still(a, name); mixer.update(0); base = a; baseName = name; once = null; return }
     if (once) { once.fadeOut(0.2); once = null }
     if (baseName === name && base) { base.reset(); base.fadeIn(0.2).play(); return }
     const a = mixer.clipAction(clips[name])
@@ -66,6 +71,7 @@ export function createArjun3d() {
   }
   function hold(name) {
     if (!mixer || !clips[name]) return
+    if (reduced()) return setBase(name)
     const a = mixer.clipAction(clips[name])
     if (once && once !== a) once.fadeOut(0.18)
     a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1)
@@ -77,29 +83,39 @@ export function createArjun3d() {
   // drawn while on the page and seen
   let raf = 0, last = 0, w = 0, h = 0
   function frame(now) {
-    raf = requestAnimationFrame(frame)
-    if (!el.isConnected) return
+    raf = 0
     const cw = el.clientWidth, ch = el.clientHeight
-    if (!cw || !ch || document.hidden) { last = 0; return }
+    if (!el.isConnected || !cw || !ch) { last = 0; return }          // hidden: the loop stops; the size watcher starts it again
+    raf = requestAnimationFrame(frame)
+    if (document.hidden) { last = 0; return }
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016
     last = now
     if (cw !== w || ch !== h) { w = cw; h = ch; renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix() }
     yaw += (yawTo - yaw) * (1 - Math.exp(-dt * 10))
     holder.rotation.y = yaw
-    if (mixer) mixer.update(dt)
+    if (mixer && !reduced()) mixer.update(dt)
     blinkT -= dt
     if (blinkT < 0) { blink = 0.16; blinkT = 2 + Math.random() * 4 }
     blink = Math.max(0, blink - dt)
     const shut = blink > 0 ? Math.sin(Math.PI * (1 - blink / 0.16)) : 0
     for (const e of eyes) e.scale.y = 1 - 0.88 * shut
-    if (mouthNode) mouthNode.scale.y = 1 + 1.9 * mouthV
+    if (jaw && mouthV > 0.001) {                 // his voice opens his jaw, about his head's side axis
+      jaw.updateWorldMatrix(true, false)
+      const qa = jaw.parent.getWorldQuaternion(new THREE.Quaternion()).invert(), qb = jaw.getWorldQuaternion(new THREE.Quaternion())
+      const ax = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw))
+      jaw.quaternion.copy(qa.multiply(new THREE.Quaternion().setFromAxisAngle(ax, 0.42 * mouthV).multiply(qb)))
+    }
     renderer.render(scene, camera)
   }
-  raf = requestAnimationFrame(frame)
-  const turn = () => { yawTo = facing * (walking ? 1.25 : 0.45) }
+  const wake = () => { if (!raf) raf = requestAnimationFrame(frame) }
+  const watch = new ResizeObserver(wake); watch.observe(el)
+  wake()
+  const turn = () => { yawTo = facing * (walking ? Math.PI / 2 : 0.6) }
 
   return {
     el,
+    solo: true,
+    get failed() { return failed },
     pose(name) {
       walking = name === 'walk'; turn()
       if (name === 'point') return hold('point')
@@ -109,9 +125,9 @@ export function createArjun3d() {
     point() {},                                   // the point clip's own arm; he turns toward what he shows
     mouth(v) { mouthV = Math.max(0, Math.min(1, v)) },
     look() {},
-    get stride() { return WALK_UNITS * STEP_S * WALK_RATE / FRAME },
+    get stride() { return WALK_UNITS * WALK_RATE * STEP_S / FRAME },
     get stepMs() { return STEP_S * 1000 },
     get walkSpeed() { return (WALK_UNITS * WALK_RATE / FRAME) * el.clientHeight },
-    destroy() { cancelAnimationFrame(raf); renderer.dispose(); renderer.forceContextLoss(); el.remove() },
+    destroy() { cancelAnimationFrame(raf); watch.disconnect(); renderer.dispose(); renderer.forceContextLoss(); el.remove() },
   }
 }

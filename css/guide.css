@@ -439,5 +439,5 @@ html.calm .ga, html.calm .ga * { animation: none !important; transition: none !i
 /* in the live room he is the 3D figure on the desk (js/room3d/guide3d.js): only the bubble is drawn here */
 .gd.gd-3d .gd-pos { display: none; }
 /* the 3D figure in his own canvas (js/guide/arjun3d.js), where the live room cannot hold him */
-.ga.ga3 { aspect-ratio: .62; }
+.ga.ga3 { aspect-ratio: 1.7; }      /* the tortoise, side on */
 .ga.ga3 canvas { display: block; width: 100%; height: 100%; }

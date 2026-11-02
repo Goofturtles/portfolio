@@ -1,12 +1,16 @@
 // Mini Arjun in the room itself (Arjun, 2026-11-01: "I want the arjun character to be 3d", "make the arjun character
-// like actually animated and cool use blender ... for real 3d effect"). The guide is a real 3D figure, a toy about 14 cm
-// tall standing ON the desk: lit by the room's own light in every theme, mirrored by the lacquer, hidden by what stands
+// like actually animated and cool use blender ... for real 3d effect", then "make it like a turtle instead coz i like
+// turtles", then "make it a realistic turtle not cartoon realistic, like on 4 legs and all"). The guide is a realistic
+// tortoise, his carapace 17 cm long, walking on four legs ON the desk: lit by the room's own light in every theme, mirrored by the lacquer, hidden by what stands
 // in front of him, his shadow on the desk. Made in Blender from code (character/arjun.py -> media/room3d/arjun.glb):
 // rigid rounded parts on an armature, eight clips (idle walk hop wave point cheer talk react). What the site adds live:
 //   moving   he finds his way round the things on the desk (a grid over the desk, the same footprints the egg rolls
 //            round), walks short trips at his own stride (the planted shoe does not slide) and hops longer ones
 //   face     his mouth opens with his voice and he blinks (both squash a part along his head's own up, in the shader);
-//            his head turns to what he talks about, else to whoever is looking (the camera) or the pointer
+//   look     he looks like a person does: his eyes get there first, then his head follows on a soft spring with his
+//            neck and chest each taking a share of the turn, tilting a little into it; what is too far round for his
+//            neck he turns his whole body to. He looks at what he talks about, else the pointer, else you (the camera),
+//            his eyes wandering a little now and then
 //   reacts   press him and he startles; the egg rolling into him makes him jump, and he kicks it on his way past;
 //            his head follows the pointer round the room when nothing else holds his eye
 //   sound    his voice and his steps come from where he stands (Web Audio, HRTF, the listener at the camera), once a
@@ -16,12 +20,12 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { GLASS_LAYER } from './post.js'
 
-const SRC = 'media/room3d/arjun.glb'
-const HEIGHT = 0.14                       // metres, standing (the model is 1 unit tall)
-const S = HEIGHT
-const WALK_UNITS = 0.575                  // the walk clip's own speed, units of his height a second (character/arjun.py)
-const WALK_RATE = 1.3                     // the clip played a little brisker; the root moves to match, so no sliding
-const CELL = 0.02, CLEAR = 0.034, EDGE = 0.03
+const SRC = 'media/room3d/turtle.glb'
+const S = 0.17                            // metres a unit: his carapace is 1 unit long (character/turtle.py)
+const HEIGHT = 0.52 * S                   // to the top of his shell
+const WALK_UNITS = 0.1882                 // the walk clip's own speed, carapace lengths a second (character/turtle.py prints it)
+const WALK_RATE = 2.6, RUN_RATE = 3.4     // the clip played brisker (a busy little tortoise), faster on long trips; the root moves to match
+const CELL = 0.02, CLEAR = 0.075, EDGE = 0.06
 const TAU = Math.PI * 2
 
 const VERT = `
@@ -30,11 +34,32 @@ uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
 uniform vec4 uSquash;   // xyz: the centre (world), w: 0 as made, >0 flatter, <0 taller
 uniform vec3 uUp;       // his head's up, in the world
 in vec3 position, normal;
+#ifdef VCOL
+in vec4 color;
+out vec3 vCol;
+#endif
+#ifdef SKIN
+uniform mat4 bindMatrix, bindMatrixInverse;
+uniform highp sampler2D boneTexture;
+in vec4 skinIndex, skinWeight;
+mat4 bone(const in float i) {
+  int size = textureSize(boneTexture, 0).x, j = int(i) * 4, x = j % size, y = j / size;
+  return mat4(texelFetch(boneTexture, ivec2(x, y), 0), texelFetch(boneTexture, ivec2(x + 1, y), 0), texelFetch(boneTexture, ivec2(x + 2, y), 0), texelFetch(boneTexture, ivec2(x + 3, y), 0));
+}
+#endif
 out vec3 vW, vN;
 void main() {
-  vec4 w = modelMatrix * vec4(position, 1.);
+  vec4 p = vec4(position, 1.); vec3 n = normal;
+#ifdef SKIN
+  mat4 sk = bindMatrixInverse * (skinWeight.x * bone(skinIndex.x) + skinWeight.y * bone(skinIndex.y) + skinWeight.z * bone(skinIndex.z) + skinWeight.w * bone(skinIndex.w)) * bindMatrix;
+  p = sk * p; n = mat3(sk) * n;
+#endif
+#ifdef VCOL
+  vCol = pow(max(color.rgb, 0.), vec3(1. / 2.2));      // the scutes' and the skin's colours, from linear
+#endif
+  vec4 w = modelMatrix * p;
   if (uSquash.w != 0.) w.xyz -= uUp * dot(w.xyz - uSquash.xyz, uUp) * uSquash.w;
-  vW = w.xyz; vN = mat3(modelMatrix) * normal;
+  vW = w.xyz; vN = mat3(modelMatrix) * n;
   gl_Position = projectionMatrix * viewMatrix * w;
 }`
 // lit the way the room lights what it did not bake (look.js UNBAKED): the theme's sky from above, its sun, the lamp
@@ -48,6 +73,9 @@ uniform float uMix, uEnvYaw, uBloomPass, uHover, uFade, uRough, uEmit;
 uniform vec2 uDepth;
 uniform vec3 uColor, uSkyA, uSkyB, uSunA, uSunB, uSunDir, uLampPos, uLampA, uLampB;
 in vec3 vW, vN;
+#ifdef VCOL
+in vec3 vCol;
+#endif
 out vec4 frag;
 vec3 env(vec3 d, float lod) {
   vec2 e = vec2(atan(d.x, -d.z) / 6.28318530718 + .5 + uEnvYaw, .5 - asin(clamp(d.y, -1., 1.)) / 3.14159265359);
@@ -55,6 +83,10 @@ vec3 env(vec3 d, float lod) {
 }
 float far() { float d = length(vW - cameraPosition); return uDepth.x > 0. ? clamp(d * uDepth.x, 0., 1.) : clamp(uDepth.y / max(d, .001), 0., 1.); }
 void main() {
+  vec3 albedo = uColor;
+#ifdef VCOL
+  albedo *= vCol;
+#endif
   if (uFade < .999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715)))) > uFade) discard;
   vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
   vec3 V = normalize(cameraPosition - vW);
@@ -65,14 +97,14 @@ void main() {
   float hemi = mix(.62, 1.08, N.y * .5 + .5);
   vec3 lit = sky * hemi * 1.25 + sun * max((dot(N, uSunDir) + .3) / 1.3, 0.) + lamp;
   lit = mix(lit, env(N, 6.5) * 1.3, .45);                                          // the room round him: it is bright, so is he
-  vec3 c = uColor * lit;
+  vec3 c = albedo * lit;
   float nv = max(dot(N, V), 0.), f = .04 + .96 * pow(1. - nv, 5.);
   vec3 R = reflect(-V, N);
   c += env(R, uRough * 7.) * f * (1. - uRough) * .9;                               // the room in his hair, his shoes
   vec3 H = normalize(Ld + V);
   c += lampC * pow(max(dot(N, H), 0.), mix(6., 80., 1. - uRough)) * (1. - uRough) * near * .6;
   c += env(normalize(N - V * .5), 5.) * pow(1. - nv, 2.5) * .34;                  // the light behind him round his edge
-  c += uColor * uEmit;
+  c += albedo * uEmit;
   c *= 1. + .1 * uHover;
   frag = vec4(c * (1. - uBloomPass), far());
 }`
@@ -139,7 +171,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   const uFade = { value: 0 }, uHover = { value: 0 }
   let head = null, eyeL = null, eyeR = null, mouthNode = null, headUpLocal = new THREE.Vector3(0, 1, 0)
   let lookAt = null, look3 = new THREE.Vector3(), lookYaw = 0, lookPitch = 0, mouthV = 0, blinkT = 2 + Math.random() * 3, blink = 0
-  let onPress = null, busyHop = false, warm = 0
+  let onPress = null, busyHop = false, warm = 0, moving = false
 
   // ---- his shadow ----
   const shadowU = { uDepth: U.uDepth, uDark: { value: 0 } }
@@ -194,7 +226,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   const setP = (param, v, t) => { if (param) param.setTargetAtTime(v, t, 0.02) }
   const camF = new THREE.Vector3(), camU = new THREE.Vector3()
   function hear() {
-    if (!panner || !actx) return
+    if (!panner || !actx || actx.state !== 'running') return
     const t = actx.currentTime, L = actx.listener
     if (head) head.getWorldPosition(va); else va.copy(pos)
     if (panner.positionX) { setP(panner.positionX, va.x, t); setP(panner.positionY, va.y, t); setP(panner.positionZ, va.z, t) } else panner.setPosition(va.x, va.y, va.z)
@@ -207,10 +239,12 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     } else { L.setPosition(c.x, c.y, c.z); L.setOrientation(camF.x, camF.y, camF.z, camU.x, camU.y, camU.z) }
   }
   // his steps: each time a foot lands in the walk (the clip's 0 and its half)
+  // his steps: each time one of his four feet comes down (the walk clip plants them at these points of its cycle)
+  const PLANTS = [0.05, 0.3, 0.55, 0.8]
   function steps() {
     if (baseName !== 'walk' || !base || !clips.walk) { lastPhase = -1; return }
     const ph = (base.time / clips.walk.duration) % 1
-    if (lastPhase >= 0 && ((lastPhase > ph) || (lastPhase < 0.5 && ph >= 0.5))) blip('step', 0.32, 1.75)
+    if (lastPhase >= 0) for (const k of PLANTS) { if ((lastPhase < k && ph >= k) || (lastPhase > ph && (k > lastPhase || k <= ph))) { blip('step', 0.2, 1.2); break } }
     lastPhase = ph
   }
 
@@ -219,10 +253,13 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const rough = src && src.roughness != null ? src.roughness : 0.6
     const color = src && src.color ? display(src.color) : new THREE.Vector3(0.7, 0.7, 0.7)
     const uni = { uColor: { value: color }, uRough: { value: rough }, uEmit: { value: /shine/.test(name) ? 0.9 : 0 }, uFade, uHover,
-      uSquash: /^m_eyeR|shineR/.test(m.name) ? squashEyeR : /^m_eye|shine/.test(m.name) ? squashEyes : /mouth|teeth/.test(m.name) ? squashMouth : flat(), uUp: up,
+      uSquash: /^m_(eye|iris|pupil|shine2?|lash)R$/.test(m.name) ? squashEyeR : /^m_(eye|iris|pupil|shine2?|lash)L$/.test(m.name) ? squashEyes : /^m_(mouth|teeth|tongue)$/.test(m.name) ? squashMouth : flat(), uUp: up,
       cameraPosition: { value: camera.position }, uEnvA: U.uEnvA, uEnvB: U.uEnvB, uMix: U.uMix, uEnvYaw: U.uEnvYaw, uBloomPass: U.uBloomPass, uDepth: U.uDepth,
       uSkyA: U.uSkyA, uSkyB: U.uSkyB, uSunA: U.uSunA, uSunB: U.uSunB, uSunDir: U.uSunDir, uLampPos: U.uLampPos, uLampA: U.uLampA, uLampB: U.uLampB }
-    m.material = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, uniforms: uni })
+    const defines = {}
+    if (m.isSkinnedMesh) defines.SKIN = 1
+    if (m.geometry.attributes.color) { defines.VCOL = 1; uni.uColor.value.set(1, 1, 1) }
+    m.material = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, uniforms: uni, defines })
     m.frustumCulled = false
   }
 
@@ -233,6 +270,9 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
       model.traverse((m) => { if (m.isMesh) dress(m) })
       actor.add(model)
       head = model.getObjectByName('head'); eyeL = model.getObjectByName('m_eyeL'); eyeR = model.getObjectByName('m_eyeR'); mouthNode = model.getObjectByName('m_mouth')
+      for (const n of ['neck1', 'neck2', 'head']) { const b = model.getObjectByName(n); if (b) lookBones.push([b, LOOK_SHARE[n]]) }
+      jaw = model.getObjectByName('jaw')
+      for (const n of ['m_irisL', 'm_irisR']) { const o = model.getObjectByName(n); if (o) irises.push([o, o.position.clone()]) }
       actor.updateMatrixWorld(true)
       if (head) headUpLocal = new THREE.Vector3(0, 1, 0).applyQuaternion(head.getWorldQuaternion(new THREE.Quaternion()).invert())
       mixer = new THREE.AnimationMixer(model)
@@ -256,9 +296,12 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     base = a; baseName = name
   }
   // a clip played through once over the base (hop, react) or to its end and held (point); resolves when it ends
+  let pending = null                       // the promise of the one-shot clip playing: settled when it ends or is replaced
+  function settle() { if (pending) { const p = pending; pending = null; p() } }
   function playOnce(name, { hold = false, fadeS = 0.12, rate = 1 } = {}) {
     if (!mixer || !clips[name]) return Promise.resolve()
     const a = mixer.clipAction(clips[name])
+    settle()
     if (once && once !== a) once.fadeOut(fadeS)
     a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveTimeScale(rate); a.setEffectiveWeight(1)
     a.fadeIn(fadeS).play()
@@ -266,11 +309,14 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     if (base) base.fadeOut(fadeS)
     return new Promise((done) => {
       const end = (e) => {
-        if (e.action !== a) return
+        if (e && e.action !== a) return
         mixer.removeEventListener('finished', end)
-        if (!hold) release(0.2)
+        if (pending === finish) pending = null
+        if (e && !hold) release(0.2)
         done()
       }
+      const finish = () => end(null)
+      pending = finish
       mixer.addEventListener('finished', end)
     })
   }
@@ -396,7 +442,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     if (!rec) return null
     const ox = rec.centre.x, oz = rec.centre.z
     const toCam = Math.atan2(cx - ox, cz - oz)
-    const r0 = (rec.onDesk ? rec.radius : 0.05) + 0.055
+    const r0 = (rec.onDesk ? rec.radius : 0.05) + 0.115
     let best = null, bs = -Infinity
     const v = new THREE.Vector3(), ox2 = v.copy(rec.centre).project(camera).x
     for (const side of [1, -1]) for (let a = 40; a <= 100; a += 10) for (let dr = 0; dr < 0.12; dr += 0.02) {
@@ -428,7 +474,9 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     let total = 0, px = pos.x, pz = pos.z
     for (const [x, z] of path) { total += Math.hypot(x - px, z - pz); px = x; pz = z }
     if (total < 0.008) return
-    const hopping = total > 0.3
+    const hopping = false, rate = total > 0.25 ? RUN_RATE : WALK_RATE
+    moving = true
+    if (lift < 0) lift = 0
     for (const [x, z] of path) {
       if (stop && stop()) return
       const d = Math.hypot(x - pos.x, z - pos.z)
@@ -441,7 +489,8 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
       } else {
         lookAt = null
         setBase('walk', 0.18)
-        const speed = WALK_UNITS * S * WALK_RATE, sx = pos.x, sz = pos.z, ms = d / speed * 1000, t0 = performance.now()
+        if (base) base.setEffectiveTimeScale(rate)
+        const speed = WALK_UNITS * S * rate, sx = pos.x, sz = pos.z, ms = d / speed * 1000, t0 = performance.now()
         await new Promise((done) => {
           const f = (now) => {
             if (stop && stop()) return done()
@@ -454,7 +503,28 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
         })
       }
     }
+    moving = false
     setBase('idle', 0.25)
+  }
+  // up over the desk's edge (or down it): the climb clip while he moves to the point and rises (or sinks) to the desk
+  async function climb(x, z, fromY, toY, down = false) {
+    busyHop = true
+    const sx = pos.x, sz = pos.z
+    const clip = down ? null : playOnce('climb', { rate: 1.2 })
+    if (down) setBase('walk', 0.15)
+    const ms = down ? 900 : 34 / 30 / 1.2 * 1000, t0 = performance.now()
+    await new Promise((done) => {
+      const f = (now) => {
+        const k = Math.min(1, (now - t0) / ms), e = k * k * (3 - 2 * k)
+        pos.x = sx + (x - sx) * e; pos.z = sz + (z - sz) * e
+        lift = fromY + (toY - fromY) * (down ? k * k : 1 - (1 - k) * (1 - k))
+        if (k < 1) requestAnimationFrame(f); else done()
+      }
+      requestAnimationFrame(f)
+    })
+    lift = toY
+    if (clip) { await clip; landed(0.5) }
+    busyHop = false
   }
   // one hop to a point, from y0 (the desk, or below its edge as he comes up onto it) to the desk
   async function hop(x, z, fromY = 0, toY = 0) {
@@ -483,7 +553,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
   function kick() {
     const egg = things.egg
     if (!egg) return
-    const dx = egg.x - pos.x, dz = egg.z - pos.z, d = Math.hypot(dx, dz), reach = egg.r + 0.03
+    const dx = egg.x - pos.x, dz = egg.z - pos.z, d = Math.hypot(dx, dz), reach = egg.r + 0.48 * S
     if (d < reach && d > 1e-4) {
       const s = Math.sin(yaw), c = Math.cos(yaw)
       egg.vx += (dx / d) * 0.12 + s * 0.08; egg.vz += (dz / d) * 0.12 + c * 0.08
@@ -494,7 +564,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     startled = Math.max(0, startled - dt)
     if (!egg || !actor.visible || startled > 0 || busyHop || lift > 0.002) return
     const dx = egg.x - pos.x, dz = egg.z - pos.z, d = Math.hypot(dx, dz), v = Math.hypot(egg.vx, egg.vz)
-    if (d < egg.r + 0.026 && v > 0.06) {
+    if (d < egg.r + 0.46 * S && v > 0.06) {
       startled = 1.2
       const nx = dx / d, nz = dz / d, along = egg.vx * nx + egg.vz * nz
       if (along < 0) { egg.vx -= 1.6 * along * nx; egg.vz -= 1.6 * along * nz }      // it bounces off his shins
@@ -505,23 +575,51 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
 
   // ---- the face ----
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), qc = new THREE.Quaternion(), va = new THREE.Vector3(), vb = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0)
+  const LOOK_SHARE = { neck1: 0.25, neck2: 0.3, head: 0.45 }
+  let jaw = null
+  const lookBones = [], irises = [], qd = new THREE.Quaternion(), side = new THREE.Vector3(), fwd = new THREE.Vector3()
+  const L = { yaw: 0, vy: 0, pitch: 0, vp: 0 }, glance = new THREE.Vector2(), wander = new THREE.Vector2()
+  let turnT = 0, wanderT = 2
+  // a critically damped spring: smooth to start, no overshoot, no snapping
+  function spring(o, x, v, to, dt, w) { const a = w * w * (to - o[x]) - 2 * w * o[v]; o[v] += a * dt; o[x] += o[v] * dt }
   function face(dt) {
     if (!head) return
-    // where he looks: what he is talking about, else the pointer's place in the room, else the camera
-    const target = lookAt || (pointerAt && performance.now() - pointerT < 2500 ? pointerP : camera.position)
+    const live = performance.now() - pointerT < 2500
+    const target = lookAt || (pointerAt && live ? pointerP : camera.position)
     head.getWorldPosition(va)
     vb.copy(target).sub(va)
     const want = wrapA(Math.atan2(vb.x, vb.z) - yaw), flat = Math.hypot(vb.x, vb.z)
-    const wy = THREE.MathUtils.clamp(want, -0.9, 0.9), wp = THREE.MathUtils.clamp(-Math.atan2(vb.y, flat) * 0.6, -0.35, 0.3)
-    const k = 1 - Math.exp(-dt * 7)
-    lookYaw += (wy - lookYaw) * k; lookPitch += (wp - lookPitch) * k
-    // turned in the world (about the up, then about his own side), whatever the bone's own axes are
-    head.parent.getWorldQuaternion(qa)
-    head.getWorldQuaternion(qb)
-    va.set(Math.cos(yaw), 0, -Math.sin(yaw))                    // his left-right axis in the world
-    qc.setFromAxisAngle(Y, lookYaw).multiply(new THREE.Quaternion().setFromAxisAngle(va, lookPitch))
-    head.quaternion.copy(qa.invert().multiply(qc.multiply(qb)))
-    head.updateMatrixWorld(true)
+    const wp = THREE.MathUtils.clamp(-Math.atan2(vb.y, flat), -0.5, 0.42)
+    // too far round for his neck: standing still, after a moment he turns his body to it
+    if (Math.abs(want) > 1.05 && !moving && !busyHop && !once) { turnT += dt; if (turnT > 0.45) { yawTo = yaw + want * 0.75; turnT = 0 } } else turnT = 0
+    const wy = THREE.MathUtils.clamp(want, -1.1, 1.1)
+    for (let i = 0, n = Math.max(1, Math.ceil(dt / 0.008)); i < n; i++) { spring(L, 'yaw', 'vy', wy, dt / n, 7.5); spring(L, 'pitch', 'vp', wp, dt / n, 7.5) }
+    // the eyes lead the head: they are already where it is going, and drift a little on their own when nothing holds them
+    wanderT -= dt
+    if (wanderT < 0) { wander.set((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.4); wanderT = lookAt ? 3 : 1.4 + Math.random() * 2.6; if (Math.random() < 0.45) wander.set(0, 0) }
+    const lead = THREE.MathUtils.clamp((wy - L.yaw) * 1.3, -1, 1), leadP = THREE.MathUtils.clamp((wp - L.pitch) * 1.3, -1, 1)
+    const g = 1 - Math.exp(-dt * 30)
+    glance.x += (THREE.MathUtils.clamp(lead + wander.x, -1, 1) - glance.x) * g
+    glance.y += (THREE.MathUtils.clamp(leadP + wander.y, -1, 1) - glance.y) * g
+    // the turn shared down the chest, the neck and the head, each turned in the world (whatever its own axes are),
+    // the head tipping a little into a quick turn
+    side.set(Math.cos(yaw), 0, -Math.sin(yaw)); fwd.set(Math.sin(yaw), 0, Math.cos(yaw))
+    for (const [b, share] of lookBones) {
+      b.parent.getWorldQuaternion(qa); b.getWorldQuaternion(qb)
+      qc.setFromAxisAngle(Y, L.yaw * share).multiply(qd.setFromAxisAngle(side, L.pitch * share))
+      if (b === head) qc.multiply(qd.setFromAxisAngle(fwd, THREE.MathUtils.clamp(-L.vy * 0.05, -0.12, 0.12)))
+      b.quaternion.copy(qa.invert().multiply(qc.multiply(qb)))
+      b.updateMatrixWorld(true)
+    }
+    for (const [o, rest] of irises) { o.position.set(rest.x, rest.y - glance.y * 0.002, rest.z + glance.x * 0.0025) }
+    // his voice opens his jaw (about his head's side axis, whatever the bone's own axes are)
+    if (jaw) {
+      jaw.parent.getWorldQuaternion(qa); jaw.getWorldQuaternion(qb)
+      va.set(Math.cos(yaw + L.yaw), 0, -Math.sin(yaw + L.yaw))            // his head's side axis: turning about it tips the jaw down
+      qd.setFromAxisAngle(va, 0.42 * mouthV)
+      jaw.quaternion.copy(qa.invert().multiply(qd.multiply(qb)))
+      jaw.updateMatrixWorld(true)
+    }
     // blinks: every 2 to 6 s, now and then twice
     blinkT -= dt
     if (blinkT < 0) { blink = 0.16; blinkT = 2 + Math.random() * 4; if (Math.random() < 0.18) blinkT = 0.32 }
@@ -531,7 +629,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     up.value.copy(headUpLocal).applyQuaternion(qa).normalize()
     if (eyeL) { eyeL.getWorldPosition(va); squashEyes.value.set(va.x, va.y, va.z, 0.88 * shut) }
     if (eyeR) { eyeR.getWorldPosition(va); squashEyeR.value.set(va.x, va.y, va.z, 0.88 * shut) }
-    if (mouthNode) { mouthNode.getWorldPosition(va); squashMouth.value.set(va.x, va.y, va.z, -1.9 * mouthV) }
+
   }
 
   // ---- pressing him ----
@@ -541,8 +639,8 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     const r = canvas.getBoundingClientRect()
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     ray.setFromCamera(ndc, camera)
-    va.copy(pos); va.y += lift + HEIGHT * 0.5
-    if (ray.ray.distanceToPoint(va) > HEIGHT * 0.75) return false
+    va.copy(pos); va.y += lift + 0.25 * S
+    if (ray.ray.distanceToPoint(va) > 0.75 * S) return false
     hits.length = 0
     ray.intersectObject(model, true, hits)
     return hits.length > 0
@@ -589,8 +687,8 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     struck(dt)
     const air = Math.max(0, lift)
     shadow.position.set(pos.x, deskY + 0.0004, pos.z)
-    const sw = HEIGHT * 0.62 * (1 + air * 2)
-    shadow.scale.set(sw, 1, sw * 0.8)
+    const sw = S * (1 + air * 2)
+    shadow.scale.set(sw * 0.95, 1, sw * 1.3)
     shadow.rotation.y = yaw
     shadowU.uDark.value = 0.42 * fade * Math.max(0, 1 - air * 9) * (lift < -0.01 ? 0 : 1)
     if (puffs.visible) { puffU.uT.value += dt; puffU.uPx.value = canvas.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)); if (puffU.uT.value > 0.8) puffs.visible = false }
@@ -605,7 +703,7 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
     get position() { return pos },
     show(v) { fadeTo = v ? 1 : 0 },
     get shown() { return fadeTo > 0 },
-    hide() { fadeTo = 0; fade = 0; actor.visible = shadow.visible = false; lookAt = null; mouthV = 0; setBase('idle', 0); release(0) },
+    hide() { fadeTo = 0; fade = 0; actor.visible = shadow.visible = false; lookAt = null; mouthV = 0; busyHop = false; moving = false; settle(); setBase('idle', 0); release(0) },
     place(x, z, faceTarget) { pos.set(x, deskY, z); lift = 0; if (faceTarget) { faceTo(faceTarget.x, faceTarget.z); yaw = yawTo } },
     spot: spotFor,
     walkTo,
@@ -617,12 +715,12 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
       const [cx, cz] = camXZ(), ang = Math.atan2(to.x - cx, to.z - cz)
       let ex = to.x, ez = to.z
       for (let d = 0; d < 0.8; d += 0.01) { const x = to.x - Math.sin(ang) * d, z = to.z - Math.cos(ang) * d; if (!inside(outline, x, z)) { ex = x - Math.sin(ang) * 0.03; ez = z - Math.cos(ang) * 0.03; break } }
-      pos.set(ex, deskY, ez); lift = -HEIGHT * 1.1
+      pos.set(ex, deskY, ez); lift = -0.075
       faceTo(to.x, to.z); yaw = yawTo
       setBase('idle', 0); fadeTo = 1; fade = 1
       if (stop && stop()) return
-      const [ix, iz] = nearestFree(ex + Math.sin(ang) * 0.09, ez + Math.cos(ang) * 0.09)
-      await hop(ix, iz, -HEIGHT * 1.1, 0)
+      const [ix, iz] = nearestFree(ex + Math.sin(ang) * 0.12, ez + Math.cos(ang) * 0.12)
+      await climb(ix, iz, -0.075, 0)
       if (stop && stop()) return
       await walkTo(to, stop)
     },
@@ -633,20 +731,26 @@ export function createGuide3d({ scene, camera, canvas, look, things, contract, a
       let ex = pos.x, ez = pos.z
       for (let d = 0; d < 0.8; d += 0.01) { const x = pos.x - Math.sin(ang) * d, z = pos.z - Math.cos(ang) * d; if (!inside(outline, x, z)) { ex = x - Math.sin(ang) * 0.04; ez = z - Math.cos(ang) * 0.04; break } }
       await turnTo(yawTo2(ex, ez), stop)
-      await hop(ex, ez, 0, -HEIGHT * 1.3)
+      if (stop && stop()) return
+      await walkTo({ x: pos.x + (ex - pos.x) * 0.6, z: pos.z + (ez - pos.z) * 0.6 }, stop)
+      if (stop && stop()) return
+      fadeTo = 0
+      await climb(ex, ez, 0, -0.09, true)
+      if (stop && stop()) return
       api.hide()
     },
     faceCamera() { faceCamera() },
     face(x, z) { faceTo(x, z) },
     pose(name) {
-      if (name === 'point' || name === 'hop' || name === 'react') return playOnce(name, { hold: name === 'point' })
+      if (name === 'cheer') name = 'happy'
+      if (name === 'point' || name === 'climb' || name === 'react') return playOnce(name, { hold: name === 'point' })
       release(0.2); setBase(clips[name] ? name : 'idle', 0.25)
       return Promise.resolve()
     },
     // turn so his pointing arm (out to his right) lines up with a thing, and point
     pointAt(target) {
       const a = Math.atan2(target.x - pos.x, target.z - pos.z)
-      yawTo = a + 0.38
+      yawTo = a
       lookAt = target.clone ? target.clone() : new THREE.Vector3(target.x, target.y, target.z)
       return playOnce('point', { hold: true, fadeS: 0.18 })
     },

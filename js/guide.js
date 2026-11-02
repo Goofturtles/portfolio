@@ -16,7 +16,6 @@
 import { CONFIG, reduced, el, voice, setVoice, store, wait } from './config.js'
 import { line } from './icons.js'
 import { createArjun } from './guide/arjun.js'
-import { createArjun3d } from './guide/arjun3d.js'
 import * as room from './room.js'
 
 const DONE = 'pc-tour', DESK = 'pc-tour-desk'
@@ -46,11 +45,20 @@ const lit = new Set()
 // Wherever the live room is up he walks, hops, points and talks there for real; the drawing (js/guide/arjun.js) is
 // what he is where there is no live room (a phone on the still picture) and on the mini desktop.
 let g3 = null, follow = 0
-const in3d = () => !!g3 && g3.ready && room.live() && app.dataset.place === 'room'
+const in3d = () => !!g3 && g3 === (room.guide3d && room.guide3d()) && g3.ready && room.live() && app.dataset.place === 'room'
 function want3d() {
-  const a = !g3 && room.guide3d && room.guide3d()
-  if (a) { g3 = a; g3.onPress = () => { if (asking && !run) start(true) }; if (ctx) g3.audio(ctx, gain) }
-  return g3 ? g3.load().then(() => (g3.ready ? g3 : null)) : Promise.resolve(null)
+  const a = room.guide3d && room.guide3d()
+  if (a !== g3) { g3 = a || null; if (g3) { g3.onPress = () => { if (asking && !run) start(true) }; if (ctx) g3.audio(ctx, gain) } }      // the room was rebuilt (reduced motion off and on): its new figure
+  return g3 ? g3.load().then(() => (g3 && g3.ready ? g3 : null)) : Promise.resolve(null)
+}
+// off the live room he is the 3D figure in his own canvas (js/guide/arjun3d.js, and three.js with it, fetched only then);
+// the drawing (js/guide/arjun.js) stays where WebGL is missing
+let soloJob = null
+function solo3d() {
+  return (soloJob ||= import('./guide/arjun3d.js').then((m) => m.createArjun3d()).then((a) => {
+    if (a && arjun && !arjun.solo) { arjun.el.replaceWith(a.el); if (arjun.destroy) arjun.destroy(); arjun = a }
+    return arjun
+  }).catch(() => arjun))
 }
 // the bubble rides over his head while he is in the room
 function track() {
@@ -82,7 +90,7 @@ function build() {
   layer = app.appendChild(el('div', 'gd'))
   layer.hidden = true
   posEl = layer.appendChild(el('div', 'gd-pos'))
-  arjun = createArjun3d() || createArjun()      // off the live room he is still the 3D figure, in his own canvas; the drawing only without WebGL
+  arjun = createArjun()
   posEl.appendChild(el('div', 'gd-anc')).appendChild(arjun.el)
   bubble = layer.appendChild(el('div', 'gd-bub'))
   bubble.setAttribute('role', 'dialog'); bubble.setAttribute('aria-label', 'Tour of the room')
@@ -198,7 +206,7 @@ async function walkTo(p, my) {
   const from = at, d = Math.hypot(p.x - from.x, p.y - from.y)
   if (d < 6) { place(p); at = p; return }
   arjun.face(p.x >= from.x ? 1 : -1); arjun.point(0)
-  const stride = (arjun.stride || 0.206) * p.h, stepMs = arjun.stepMs || 500, walk = d < stride * 4.5
+  const stride = (arjun.stride || 0.206) * p.h, stepMs = arjun.stepMs || 500, walk = !!arjun.solo || d < stride * 4.5      // the tortoise always walks
   const n = walk ? Math.max(1, Math.round(d / stride)) : Math.max(1, Math.ceil(d / (p.h * 0.95)))
   const per = walk ? stepMs : 380, ms = n * per
   arjun.pose(walk ? 'walk' : 'idle')
@@ -229,8 +237,8 @@ function showBubble(html, btns, n) {
   bubble.querySelector('.gd-btns').innerHTML = btns
   bubble.querySelector('.gd-n').textContent = n || ''
   bubble.classList.toggle('gd-ask', !n)
+  bubble.hidden = false                                     // shown first: a live region only speaks what changes while it is seen
   say(html, html.length)
-  bubble.hidden = false
   reflowBubble()
   bubble.classList.remove('gd-on'); void bubble.offsetWidth; bubble.classList.add('gd-on')
 }
@@ -262,13 +270,26 @@ function say(text, n) {
 // ---- the voice -----------------------------------------------------------------------------------------------
 const loadData = () => (dataJob ||= fetch('media/guide/guide.json').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => (data = d)))
 // from a press: the audio context starts inside the press (as every browser asks), then the clips are fetched and decoded
-function unlock() {
+// the first press anywhere lets audio in (a browser asks for one), so his voice can speak where no tour was asked for:
+// the one line on the mini desktop, the first time it opens
+function wake() {
   if (!ctx) {
     const A = window.AudioContext || window.webkitAudioContext
     if (A) { try { ctx = new A(); gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.value = voice() ? 1 : 0 } catch (e) { ctx = null } }
   }
   if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
   if (ctx && g3) g3.audio(ctx, gain)
+}
+// one line's voice on its own, fetched and decoded if it is not yet, waited for at most ms
+async function clipReady(k, ms) {
+  if (bufs[k] || !ctx) return
+  const d = await loadData()
+  if (!d || !d.clips[k]) return
+  ready[k] ||= fetch(d.clips[k].src).then((r) => r.arrayBuffer()).then((b) => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no))).then((buf) => { bufs[k] = buf }).catch(() => {})
+  await Promise.race([ready[k], wait(ms)])
+}
+function unlock() {
+  wake()
   // fetched and decoded one after another in the order he says them, so the first line is ready first
   decoding ||= loadData().then(async (d) => {
     if (!d || !ctx) return
@@ -363,6 +384,8 @@ export async function offer() {
     showBubble(ASK, `<button type="button" class="gd-b" data-go="no">No thanks</button><button type="button" class="gd-b gd-p" data-go="start">Show me around</button>`)
     return
   }
+  await solo3d()
+  if (my !== token) return
   const p = spotFor(STEPS[0])
   if (!p) { asking = false; hide(); return }
   at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }                    // in from the left edge
@@ -388,7 +411,7 @@ export async function start(fromPress) {
   open()
   run = { i: -1, stop: null }
   if (await want3d() && in3d()) layer.classList.add('gd-3d')
-  else if (!at) { const p = spotFor(STEPS[0]); if (p) { at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }; if (at) place(at) } }
+  else if (await solo3d() && !at) { const p = spotFor(STEPS[0]); if (p) { at = reduced() ? null : { x: -p.h, y: p.y, h: p.h }; if (at) place(at) } }
   await Promise.race([loadData(), wait(1500)])
   await voiceFor('hello', 2000)
   if (run) step(0)
@@ -402,7 +425,9 @@ async function step(i) {
   unlightAll()
   run.i = i
   const s = list[i], n = `${i + 1} / ${list.length}`
+  const keys = bubble.contains(document.activeElement)      // a keyboard on the bubble stays on it, step to step
   bubble.hidden = true
+  bubble.querySelector('.gd-sr').textContent = ''
   const three = in3d()
   const p = three ? spot3(s) : spotFor(s)
   if (!p) return step(i + 1)
@@ -429,7 +454,7 @@ async function step(i) {
   const c = data && data.clips[s.clip], words = c ? c.text : s.text
   showBubble(words, btns, n)
   say(words, 0)
-  if (bubble.contains(document.activeElement) || i === 0) bubble.querySelector('[data-go="next"]').focus({ preventScroll: true })
+  if (keys || i === 0) bubble.querySelector('[data-go="next"]').focus({ preventScroll: true })
   let marks = null, mark = -1
   if (s.marks) {
     const timed = c || { text: words, dur: words.length * 0.062 + 0.5, chunks: [[0, words.length, 0.15, words.length * 0.062 + 0.2]] }
@@ -534,6 +559,8 @@ export async function deskTip() {
   if (!tip || app.dataset.place !== 'desktop') { tip = false; return }
   open()
   const my = ++token
+  await solo3d()
+  if (my !== token || !tip) return
   const h = size(), gw = h * aspect(), bar = phone.matches ? 230 : document.querySelector('#desktop.onlap') ? 10 : 56      // on a phone his bubble runs along the foot of the screen: he stands above it
   const p = { x: gw / 2 + 18, y: H() - bar, h, face: 1, aim: null }
   at = reduced() ? null : { x: -h, y: p.y, h }
@@ -544,6 +571,7 @@ export async function deskTip() {
   showBubble(DESK_TEXT, `<button type="button" class="gd-b gd-p" data-go="tip">Got it</button>`)
   run = { i: -1, stop: null }
   await loadData()
+  await clipReady('desk', 1500)
   if (my !== token) return
   const ended = await speak('desk', DESK_TEXT, my)
   if (ended && my === token) { arjun.pose('idle'); run = null }
@@ -557,5 +585,8 @@ function closeTip() {
 export function deskAway() { if (tip) closeTip() }
 // Tutorial from the taskbar's tray (main.js): the next desktop visit gets its tip again too
 export function tutorial() { store.set(DESK, ''); start(true) }
-export function init(onAct) { act = onAct }
+export function init(onAct) {
+  act = onAct
+  addEventListener('pointerdown', wake, { capture: true, once: true }); addEventListener('keydown', wake, { capture: true, once: true })
+}
 window.__guide = { state: () => ({ audio: ctx ? ctx.state : 'none', voices: Object.keys(bufs), step: run ? run.i : null, asking, voice: voice() }) }      // for site/tools checks only
