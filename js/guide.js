@@ -28,7 +28,7 @@ const STEPS = [
   { clip: 'resume', at: 'resume', live: true, text: 'My résumé hangs right here on the wall.' },
   { clip: 'laptop', at: 'projects', text: 'Open my laptop to explore my projects, films, and how I build them.' },
   { clip: 'ring', at: 'ai', text: 'This ring is AI Arjun. Ask it anything about me.' },
-  { clip: 'card', at: 'how', text: 'This card shows how I work.' },                 // one stop each, so he walks to every thing he names
+  { clip: 'card', at: 'how', text: 'The card shows how I work.' },                 // one stop each, so he walks to every thing he names
   { clip: 'flowers', at: 'results', text: 'The flowers are my awards.' },
   { clip: 'glass', at: 'contact', text: 'The glass is for messages.' },
   { clip: 'chair', at: 'about', text: 'And the chair is all about me.' },
